@@ -18,6 +18,9 @@ import {
 } from '../schemas/deal.js'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
+import { outboxStore } from '../outbox/index.js'
+import { TxType } from '../outbox/types.js'
+import { computeDealProgress } from '../services/dealProgress.js'
 
 const router = Router()
 
@@ -40,7 +43,7 @@ const router = Router()
  * - Use distributed locks (Redis, etc.) for multi-instance deployments
  * - Add unique constraint on listing.dealId at database level
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response, next) => {
   try {
     const validatedData: CreateDealRequest = createDealSchema.parse(req.body)
     
@@ -98,9 +101,41 @@ router.post('/', async (req: Request, res: Response) => {
     })
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message)
+      return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message))
     }
-    throw error
+    next(error)
+  }
+})
+
+/**
+ * GET /api/deals/:dealId/progress
+ * Get a deal's payment progress computed from on-chain receipts
+ */
+router.get('/:dealId/progress', async (req: Request, res: Response, next) => {
+  try {
+    const { dealId } = req.params
+
+    if (!dealId) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID is required')
+    }
+
+    const deal = await dealStore.findById(dealId)
+
+    if (!deal) {
+      throw new AppError(ErrorCode.NOT_FOUND, 404, `Deal with ID ${dealId} not found`)
+    }
+
+    // Fetch all outbox items for this deal filtered to TENANT_REPAYMENT
+    const receipts = await outboxStore.listByDealId(dealId, TxType.TENANT_REPAYMENT)
+
+    const progress = computeDealProgress(deal, receipts)
+
+    res.json({
+      success: true,
+      data: progress,
+    })
+  } catch (error) {
+    next(error)
   }
 })
 
@@ -108,30 +143,34 @@ router.post('/', async (req: Request, res: Response) => {
  * GET /api/deals/:dealId
  * Get a specific deal by ID with schedule
  */
-router.get('/:dealId', async (req: Request, res: Response) => {
-  const { dealId } = req.params
-  
-  if (!dealId) {
-    throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID is required')
+router.get('/:dealId', async (req: Request, res: Response, next) => {
+  try {
+    const { dealId } = req.params
+    
+    if (!dealId) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID is required')
+    }
+    
+    const deal = await dealStore.findById(dealId)
+    
+    if (!deal) {
+      throw new AppError(ErrorCode.NOT_FOUND, 404, `Deal with ID ${dealId} not found`)
+    }
+    
+    res.json({
+      success: true,
+      data: deal
+    })
+  } catch (error) {
+    next(error)
   }
-  
-  const deal = await dealStore.findById(dealId)
-  
-  if (!deal) {
-    throw new AppError(ErrorCode.NOT_FOUND, 404, `Deal with ID ${dealId} not found`)
-  }
-  
-  res.json({
-    success: true,
-    data: deal
-  })
 })
 
 /**
  * GET /api/deals
  * Get deals with optional filtering
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next) => {
   try {
     const validatedFilters: DealFiltersRequest = dealFiltersSchema.parse(req.query)
     
@@ -143,9 +182,9 @@ router.get('/', async (req: Request, res: Response) => {
     })
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message)
+      return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message))
     }
-    throw error
+    next(error)
   }
 })
 
@@ -153,11 +192,11 @@ router.get('/', async (req: Request, res: Response) => {
  * PATCH /api/deals/:dealId/status
  * Update deal status
  */
-router.patch('/:dealId/status', async (req: Request, res: Response) => {
+router.patch('/:dealId/status', async (req: Request, res: Response, next) => {
   const { dealId } = req.params
   
   if (!dealId) {
-    throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID is required')
+    return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID is required'))
   }
   
   try {
@@ -175,9 +214,9 @@ router.patch('/:dealId/status', async (req: Request, res: Response) => {
     })
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message)
+      return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message))
     }
-    throw error
+    next(error)
   }
 })
 
@@ -185,12 +224,12 @@ router.patch('/:dealId/status', async (req: Request, res: Response) => {
  * PATCH /api/deals/:dealId/schedule/:period
  * Update schedule item status
  */
-router.patch('/:dealId/schedule/:period', async (req: Request, res: Response) => {
+router.patch('/:dealId/schedule/:period', async (req: Request, res: Response, next) => {
   const { dealId } = req.params
   const period = parseInt(req.params.period, 10)
   
   if (!dealId || isNaN(period)) {
-    throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID and period are required')
+    return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Deal ID and period are required'))
   }
   
   try {
@@ -215,9 +254,9 @@ router.patch('/:dealId/schedule/:period', async (req: Request, res: Response) =>
     })
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message)
+      return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, error.message))
     }
-    throw error
+    next(error)
   }
 })
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   OutboxStatus,
+  TxType,
   type OutboxItem,
   type CreateOutboxItemInput,
   type CanonicalExternalRefV1,
@@ -108,6 +109,21 @@ class OutboxStore {
 
     this.items.set(id, item)
     return item
+  }
+
+  /**
+   * List items by dealId, optionally filtered by txType
+   * Only returns items whose payload.dealId matches.
+   */
+  async listByDealId(dealId: string, txType?: TxType): Promise<OutboxItem[]> {
+    const items: OutboxItem[] = []
+    for (const item of this.items.values()) {
+      if (item.payload.dealId !== dealId) continue
+      if (txType !== undefined && item.txType !== txType) continue
+      items.push(item)
+    }
+    // Sort by createdAt ascending (chronological order)
+    return items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
   }
 
   /**

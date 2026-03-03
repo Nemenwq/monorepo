@@ -748,6 +748,68 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/deals/{dealId}/progress:
+    get:
+      summary: Get deal payment progress from on-chain receipts
+      description: |
+        Computes and returns a deal's payment progress by reading `TENANT_REPAYMENT`
+        receipts from the on-chain ledger (outbox store).
+
+        Only receipts with status `sent` (confirmed on-chain) are counted.
+        USDC is the canonical accounting unit.
+      operationId: getDealProgress
+      tags:
+        - Deals
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          description: ID of the deal
+          schema:
+            type: string
+            format: uuid
+            example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Deal progress computed from on-chain receipts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DealProgressResponse'
+              example:
+                success: true
+                data:
+                  totalPaidUsdc: "129.040000"
+                  periodsPaid: 2
+                  remainingPeriods: 10
+                  nextDueDate: "2024-04-15T00:00:00.000Z"
+                  lastPaymentTxId: "a3f2c1d4e5b6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"
+                  lastPaymentExternalRefSource: stripe
+                  lastPaymentExternalRef: pi_3OZxyz123456
+        '404':
+          description: Deal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Deal with ID '550e8400-e29b-41d4-a716-446655440000' not found
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/rewards/{rewardId}/mark-paid:
     post:
       summary: Mark reward as paid
@@ -1701,6 +1763,45 @@ components:
           format: date-time
           description: ISO 8601 timestamp when the reward was paid (only present when status is "paid")
           example: "2024-01-20T14:45:00Z"
+
+    DealProgressResponse:
+      type: object
+      required:
+        - totalPaidUsdc
+        - periodsPaid
+        - remainingPeriods
+        - nextDueDate
+      properties:
+        totalPaidUsdc:
+          type: string
+          description: Total USDC paid across all confirmed on-chain TENANT_REPAYMENT receipts (decimal string with 6 decimal places)
+          example: "129.040000"
+        periodsPaid:
+          type: integer
+          description: Number of TENANT_REPAYMENT receipts confirmed on-chain
+          example: 2
+        remainingPeriods:
+          type: integer
+          description: Number of remaining repayment periods (termMonths minus periodsPaid, clamped to >= 0)
+          example: 10
+        nextDueDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 due date of the next scheduled payment; null if fully paid
+          example: "2024-04-15T00:00:00.000Z"
+        lastPaymentTxId:
+          type: string
+          description: txId (SHA-256 hex) of the most recent confirmed receipt
+          example: "a3f2c1d4e5b6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"
+        lastPaymentExternalRefSource:
+          type: string
+          description: Source part of the canonical external reference (e.g. "stripe", "manual")
+          example: stripe
+        lastPaymentExternalRef:
+          type: string
+          description: Reference part of the canonical external reference (e.g. payment intent ID)
+          example: pi_3OZxyz123456
 
     Error:
       type: object
