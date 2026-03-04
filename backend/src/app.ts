@@ -75,7 +75,12 @@ export function createApp() {
 
   // Routes
   app.use("/health", healthRouter)
+<<<<<<< HEAD
   app.use("/auth", authRouter)
+=======
+  app.use("/auth", createAuthRateLimiter(env), authRouter)
+  app.use("/api/auth", createAuthRateLimiter(env), authRouter)
+>>>>>>> 7412d70 ( Non-custodial wallet connect (advanced users) + “link wallet)
   app.use(createPublicRateLimiter(env))
   app.use("/", publicRouter)
   app.use('/api', createBalanceRouter(sorobanAdapter))

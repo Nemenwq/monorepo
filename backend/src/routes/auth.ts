@@ -1,17 +1,23 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
 import { generateOtp, generateToken, generateId } from "../utils/tokens.js"
+import { generateWalletChallenge, verifyWalletSignature, isValidEthereumAddress } from "../utils/walletAuth.js"
 
 const router = Router()
 
 const otpStore = new Map<string, { otp: string; expires: number }>()
 const userStore = new Map<string, {
   id: string
-  email: string
+  email?: string
+  walletAddress?: string
   name: string
   role: "tenant" | "landlord" | "agent"
+  authType: "email" | "wallet"
 }>()
-const tokenStore = new Map<string, string>()
+const walletChallengeStore = new Map<string, { message: string; expires: number }>()
+const tokenStore = new Map<string, { userId: string; authType: "email" | "wallet" }>()
+const emailToUserIdMap = new Map<string, string>()
+const walletToUserIdMap = new Map<string, string>()
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -20,6 +26,19 @@ const loginSchema = z.object({
 const verifySchema = z.object({
   email: z.string().email(),
   otp: z.string().length(6),
+})
+
+const walletChallengeSchema = z.object({
+  address: z.string().refine(isValidEthereumAddress, {
+    message: "Invalid Ethereum address format"
+  })
+})
+
+const walletVerifySchema = z.object({
+  address: z.string().refine(isValidEthereumAddress, {
+    message: "Invalid Ethereum address format"
+  }),
+  signature: z.string().min(1, "Signature is required")
 })
 
 router.post("/login", (req: Request, res: Response) => {
@@ -67,19 +86,23 @@ router.post("/verify-otp", (req: Request, res: Response) => {
 
   otpStore.delete(email)
 
-  let user = userStore.get(email)
+  const existingUserId = emailToUserIdMap.get(email)
+  let user = existingUserId ? userStore.get(existingUserId) : undefined
   if (!user) {
+    const id = generateId()
     user = {
-      id: generateId(),
+      id,
       email,
       name: email.split("@")[0],
       role: "tenant",
+      authType: "email",
     }
-    userStore.set(email, user)
+    userStore.set(id, user)
+    emailToUserIdMap.set(email, id)
   }
 
   const token = generateToken()
-  tokenStore.set(token, email)
+  tokenStore.set(token, { userId: user.id, authType: "email" })
 
   res.json({ token, user })
 })
@@ -91,6 +114,93 @@ router.post("/logout", (req: Request, res: Response) => {
     tokenStore.delete(token)
   }
   res.json({ message: "Logged out" })
+})
+
+// Wallet authentication endpoints
+router.post("/wallet/challenge", (req: Request, res: Response) => {
+  const parsed = walletChallengeSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid wallet address" })
+    return
+  }
+
+  const { address } = parsed.data
+  
+  // Check if wallet is already linked to another user
+  const existingUserId = walletToUserIdMap.get(address)
+  if (existingUserId) {
+    // Wallet is already linked, allow re-authentication
+    const message = generateWalletChallenge(address)
+    const expires = Date.now() + 5 * 60 * 1000 // 5 minutes
+    walletChallengeStore.set(address, { message, expires })
+    
+    res.json({ 
+      message,
+      existingUser: true,
+      userId: existingUserId
+    })
+    return
+  }
+
+  // New wallet authentication
+  const message = generateWalletChallenge(address)
+  const expires = Date.now() + 5 * 60 * 1000 // 5 minutes
+  walletChallengeStore.set(address, { message, expires })
+
+  res.json({ message, existingUser: false })
+})
+
+router.post("/wallet/verify", (req: Request, res: Response) => {
+  const parsed = walletVerifySchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request format" })
+    return
+  }
+
+  const { address, signature } = parsed.data
+  
+  // Get the challenge message
+  const challenge = walletChallengeStore.get(address)
+  if (!challenge) {
+    res.status(401).json({ error: "No challenge requested for this address" })
+    return
+  }
+
+  if (Date.now() > challenge.expires) {
+    walletChallengeStore.delete(address)
+    res.status(401).json({ error: "Challenge has expired" })
+    return
+  }
+
+  // Verify the signature
+  if (!verifyWalletSignature(address, challenge.message, signature)) {
+    res.status(401).json({ error: "Invalid signature" })
+    return
+  }
+
+  walletChallengeStore.delete(address)
+
+  const existingUserId = walletToUserIdMap.get(address)
+  let user = existingUserId ? userStore.get(existingUserId) : undefined
+  
+  if (!user) {
+    // Create new user for wallet authentication
+    const id = generateId()
+    user = {
+      id,
+      walletAddress: address,
+      name: `Wallet ${address.slice(0, 6)}...${address.slice(-4)}`,
+      role: "tenant",
+      authType: "wallet"
+    }
+    userStore.set(id, user)
+    walletToUserIdMap.set(address, id)
+  }
+
+  const token = generateToken()
+  tokenStore.set(token, { userId: user.id, authType: "wallet" })
+
+  res.json({ token, user })
 })
 
 export { tokenStore, userStore }

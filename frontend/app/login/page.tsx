@@ -6,12 +6,13 @@ import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { requestOtp } from "@/lib/authApi";
+import { requestOtp, walletChallenge, walletVerify } from "@/lib/authApi";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
@@ -26,6 +27,47 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConnectWallet = async () => {
+    setError(null);
+    setWalletLoading(true);
+
+    try {
+      if (typeof window === "undefined") {
+        throw new Error("Wallet connection is only available in the browser");
+      }
+
+      const eth = (window as any).ethereum;
+      if (!eth) {
+        throw new Error("No wallet detected. Install MetaMask (or another wallet) to continue.");
+      }
+
+      const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
+      const address = accounts?.[0];
+      if (!address) {
+        throw new Error("No wallet address returned");
+      }
+
+      const challenge = await walletChallenge(address);
+      const signature: string = await eth.request({
+        method: "personal_sign",
+        params: [challenge.message, address],
+      });
+
+      const res = await walletVerify(address, signature);
+
+      const roleRoutes: Record<string, string> = {
+        tenant: "/dashboard/tenant",
+        landlord: "/dashboard/landlord",
+        agent: "/dashboard/agent",
+      };
+      router.push(roleRoutes[res.user.role] ?? "/dashboard/tenant");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wallet login failed");
+    } finally {
+      setWalletLoading(false);
     }
   };
 
@@ -83,6 +125,23 @@ export default function LoginPage() {
               {loading ? "Sending OTP..." : "Continue"}
             </Button>
           </form>
+
+          <div className="mt-6">
+            <div className="mb-4 text-center font-mono text-sm font-bold text-muted-foreground">
+              Or
+            </div>
+            <Button
+              type="button"
+              onClick={handleConnectWallet}
+              disabled={walletLoading}
+              className="w-full border-3 border-foreground bg-card px-8 py-6 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-60"
+            >
+              {walletLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : null}
+              {walletLoading ? "Connecting..." : "Connect Wallet"}
+            </Button>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-muted-foreground">

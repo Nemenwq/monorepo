@@ -24,6 +24,24 @@ export interface VerifyOtpResponse {
   };
 }
 
+export interface WalletChallengeResponse {
+  message: string;
+  existingUser: boolean;
+  userId?: string;
+}
+
+export interface WalletVerifyResponse {
+  token: string;
+  user: {
+    id: string;
+    walletAddress?: string;
+    name: string;
+    role: "tenant" | "landlord" | "agent";
+    authType: "email" | "wallet";
+    email?: string;
+  };
+}
+
 export async function requestOtp(email: string): Promise<LoginResponse> {
   return apiPost<LoginResponse>("/auth/login", { email });
 }
@@ -35,6 +53,24 @@ export async function verifyOtp(
   const res = await apiPost<VerifyOtpResponse>("/auth/verify-otp", {
     email,
     otp,
+  });
+  setToken(res.token);
+  return res;
+}
+
+export async function walletChallenge(
+  address: string
+): Promise<WalletChallengeResponse> {
+  return apiPost<WalletChallengeResponse>("/api/auth/wallet/challenge", { address });
+}
+
+export async function walletVerify(
+  address: string,
+  signature: string
+): Promise<WalletVerifyResponse> {
+  const res = await apiPost<WalletVerifyResponse>("/api/auth/wallet/verify", {
+    address,
+    signature,
   });
   setToken(res.token);
   return res;
