@@ -12,6 +12,8 @@ import {
 import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
+import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
+import { requireCustodialMode, requireSigningEnabled } from '../middleware/custodial.js'
 
 export function createWalletRouter(walletService: WalletService): Router {
   const router = Router()
@@ -19,22 +21,11 @@ export function createWalletRouter(walletService: WalletService): Router {
   /**
    * GET /api/wallet/address
    * Returns the public wallet address for the authenticated user
-   * 
-   * Note: In a real implementation, this would require authentication middleware
-   * to extract the user ID from the request (e.g., from JWT token)
    */
-  router.get('/address', async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/address', authenticateToken, requireCustodialMode, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = req.headers['x-user-id'] as string
+      const userId = req.user!.id
       
-      if (!userId) {
-        throw new AppError(
-          ErrorCode.UNAUTHORIZED,
-          401,
-          'User authentication required'
-        )
-      }
-
       logger.info('Getting wallet address', { userId, requestId: req.requestId })
       
       const address = await walletService.getPublicAddress(userId)
@@ -63,18 +54,9 @@ export function createWalletRouter(walletService: WalletService): Router {
    * Creates a new wallet for the user (if one doesn't exist)
    * This would typically be called after first successful OTP login
    */
-  router.post('/create', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/create', authenticateToken, requireCustodialMode, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // TODO: Extract userId from authentication token
-      const userId = req.headers['x-user-id'] as string || req.body.userId
-      
-      if (!userId) {
-        throw new AppError(
-          ErrorCode.UNAUTHORIZED,
-          401,
-          'User authentication required'
-        )
-      }
+      const userId = req.user!.id
 
       logger.info('Creating wallet for user', { userId, requestId: req.requestId })
       
@@ -98,20 +80,13 @@ export function createWalletRouter(walletService: WalletService): Router {
    */
   router.post(
     '/sign-message',
+    authenticateToken,
+    requireCustodialMode,
+    requireSigningEnabled,
     validate(signMessageRequestSchema, 'body'),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        // TODO: Extract userId from authentication token
-        const userId = req.headers['x-user-id'] as string
-        
-        if (!userId) {
-          throw new AppError(
-            ErrorCode.UNAUTHORIZED,
-            401,
-            'User authentication required'
-          )
-        }
-
+        const userId = req.user!.id
         const { message } = req.body
         
         logger.info('Signing message', { userId, messageLength: message.length, requestId: req.requestId })
@@ -138,20 +113,13 @@ export function createWalletRouter(walletService: WalletService): Router {
    */
   router.post(
     '/sign-transaction',
+    authenticateToken,
+    requireCustodialMode,
+    requireSigningEnabled,
     validate(signTransactionRequestSchema, 'body'),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        // TODO: Extract userId from authentication token
-        const userId = req.headers['x-user-id'] as string
-        
-        if (!userId) {
-          throw new AppError(
-            ErrorCode.UNAUTHORIZED,
-            401,
-            'User authentication required'
-          )
-        }
-
+        const userId = req.user!.id
         const { xdr } = req.body
         
         logger.info('Signing transaction', { userId, xdrLength: xdr.length, requestId: req.requestId })

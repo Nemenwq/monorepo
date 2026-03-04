@@ -18,6 +18,8 @@ export const envSchema = z.object({
   CUSTODIAL_WALLET_MASTER_KEY_V1: z.string().optional(),
   CUSTODIAL_WALLET_MASTER_KEY_V2: z.string().optional(),
   CUSTODIAL_WALLET_MASTER_KEY_ACTIVE_VERSION: z.coerce.number().default(1),
+  CUSTODIAL_MODE_ENABLED: z.coerce.boolean().default(true),
+  CUSTODIAL_SIGNING_PAUSED: z.coerce.boolean().default(false),
 }).refine((data) => {
   if (data.NODE_ENV !== 'development' && data.NODE_ENV !== 'test' && !data.USDC_TOKEN_ADDRESS) {
     return false

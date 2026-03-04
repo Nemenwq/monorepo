@@ -8,6 +8,26 @@ import {
   ValidationError,
 } from './canonicalization.js'
 
+// Golden test vectors - shared with contract tests
+const goldenVectors = {
+  golden_test_vectors: [
+    {
+      input: { source: "paystack", ref: "psk_12345" },
+      expected_canonical: "v1|source=paystack|ref=psk_12345",
+      expected_sha256: "71e9a576e18d122acff8e200cefac00bfcba57f4dc64e9cdad89f64304c6d0ec"
+    },
+    {
+      input: { source: "BANK_TRANSFER", ref: " UTR_98765 " },
+      expected_canonical: "v1|source=bank_transfer|ref=UTR_98765",
+      expected_sha256: "e6cd19e46ae4e78bffce61f7ada43833ee97f01e3317be080e27ee398e74a29b"
+    },
+    {
+      input: { source: "stellar", ref: "" },
+      expected_error: "Ref cannot be empty after trimming"
+    }
+  ]
+}
+
 describe('buildCanonicalString', () => {
   it('should construct canonical string in correct format', () => {
     const result = buildCanonicalString('paystack', 'pi_abc123')
@@ -228,5 +248,32 @@ describe('tx_id independence from context', () => {
     
     expect(txIdWithDeal1).toBe(txId)
     expect(txIdWithDeal2).toBe(txId)
+  })
+})
+
+describe('golden test vectors', () => {
+  it('should match expected canonical strings and SHA256 hashes', () => {
+    const vectors = goldenVectors.golden_test_vectors
+    
+    vectors.forEach((vector: any, index: number) => {
+      const { input, expected_canonical, expected_sha256, expected_error } = vector
+      
+      if (expected_error) {
+        // Test that the expected error occurs
+        expect(() => buildCanonicalString(input.source, input.ref)).toThrow(expected_error)
+        expect(() => computeTxId(input.source, input.ref)).toThrow(expected_error)
+      } else {
+        // Test canonical string
+        const canonical = buildCanonicalString(input.source, input.ref)
+        expect(canonical).toBe(expected_canonical)
+        
+        // Test SHA256 hash
+        const txId = computeTxId(input.source, input.ref)
+        expect(txId).toBe(expected_sha256)
+        
+        // Verify hash format (64-character hex string)
+        expect(txId).toMatch(/^[0-9a-f]{64}$/)
+      }
+    })
   })
 })
