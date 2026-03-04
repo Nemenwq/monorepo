@@ -10,7 +10,7 @@ import { computeTxId, buildCanonicalString } from './canonicalization.js'
 
 /**
  * In-memory outbox store
- * 
+ *
  * MVP implementation using Map for storage.
  * Designed to be easily replaced with database persistence.
  */
@@ -25,7 +25,7 @@ class OutboxStore {
   async create(input: CreateOutboxItemInput): Promise<OutboxItem> {
     // Build canonical string from source and ref
     const canonicalExternalRefV1 = buildCanonicalString(input.source, input.ref)
-    
+
     // Check if item already exists for this external reference
     const existingId = this.refIndex.get(canonicalExternalRefV1)
     if (existingId) {
@@ -47,6 +47,15 @@ class OutboxStore {
       payload: input.payload,
       status: OutboxStatus.PENDING,
       attempts: 0,
+
+      lastError: "",
+      aggregateId: input.aggregateId ?? "",
+      aggregateType: input.aggregateType ?? "",
+      eventType: input.eventType ?? "",
+      nextRetryAt: null,
+      processedAt: null,
+      retryCount: 0,
+
       createdAt: now,
       updatedAt: now,
     }
@@ -102,7 +111,7 @@ class OutboxStore {
     item.status = status
     item.attempts += 1
     item.updatedAt = new Date()
-    
+
     if (error) {
       item.lastError = error
     }

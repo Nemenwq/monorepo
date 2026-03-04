@@ -35,6 +35,17 @@ export interface OutboxItem {
   status: OutboxStatus
   attempts: number
   lastError?: string
+
+  // Fields from OutboxItemInsert
+  aggregateType: string
+  aggregateId: string
+  eventType: string
+
+  // Retry / processing fields
+  retryCount: number
+  nextRetryAt: Date | null
+  processedAt: Date | null
+
   createdAt: Date
   updatedAt: Date
 }
@@ -44,4 +55,29 @@ export interface CreateOutboxItemInput {
   source: string  // Payment source (e.g., "paystack", "stellar")
   ref: string     // External payment reference ID
   payload: Record<string, unknown>
+
+
+  aggregateId?: string
+  aggregateType?: string
+  eventType?: string
 }
+
+
+
+export interface Deal {
+  id: string;
+  canonicalRef: string;
+  status: string;
+  payload: object;
+}
+
+
+
+export interface OutboxItemInsert {
+  aggregateType: string;
+  aggregateId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+}
+
+
