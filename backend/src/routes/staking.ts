@@ -20,8 +20,23 @@ import {
   type ClaimStakeRewardRequest,
   type StakingPositionResponse,
 } from '../schemas/staking.js'
+import {
+  stakingQuoteRequestSchema,
+  stakingQuoteResponseSchema,
+  stakeNgnRequestSchema,
+  stakeNgnResponseSchema,
+  stakingStatusResponseSchema,
+  type StakingQuoteRequest,
+  type StakingQuoteResponse,
+  type StakeNgnRequest,
+  type StakeNgnResponse,
+  type StakingStatusResponse,
+} from '../schemas/stakingNgn.js'
+import { stakingQuoteStore, ngnStakeStore } from '../models/stakingNgnStore.js'
+import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
+import { NgnWalletService } from '../services/ngnWalletService.js'
 
-export function createStakingRouter(adapter: SorobanAdapter) {
+export function createStakingRouter(adapter: SorobanAdapter, ngnWalletService: NgnWalletService) {
   const router = Router()
   const sender = new OutboxSender(adapter)
 
@@ -452,6 +467,232 @@ export function createStakingRouter(adapter: SorobanAdapter) {
           success: true,
           position: mockPosition,
         })
+      } catch (error) {
+        next(error)
+      }
+    },
+  )
+
+  /**
+   * POST /api/staking/quote
+   * 
+   * Get a quote for staking NGN amount with conversion to USDC.
+   */
+  router.post(
+    '/quote',
+    authenticateToken,
+    validate(stakingQuoteRequestSchema, 'body'),
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { amountNgn } = req.body as StakingQuoteRequest
+        const userId = req.user!.id
+
+        // Clean up expired quotes
+        stakingQuoteStore.deleteExpired()
+
+        // Mock FX rate and fees (in production, get from FX provider)
+        const fxRate = 1600 // 1 USDC = 1600 NGN
+        const conversionFee = amountNgn * 0.01 // 1% conversion fee
+        const stakingFee = amountNgn * 0.005 // 0.5% staking fee
+        const totalFees = conversionFee + stakingFee
+
+        const estimatedUsdc = (amountNgn - totalFees) / fxRate
+
+        const quote = stakingQuoteStore.create({
+          amountNgn,
+          estimatedUsdc,
+          fxRate,
+          fees: {
+            conversion: conversionFee,
+            staking: stakingFee,
+            total: totalFees,
+          },
+          totalUsdcAfterFees: estimatedUsdc,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+          userId,
+        })
+
+        logger.info('Staking quote created', {
+          quoteId: quote.quoteId,
+          amountNgn,
+          estimatedUsdc,
+          userId,
+          requestId: req.requestId,
+        })
+
+        const response: StakingQuoteResponse = {
+          quoteId: quote.quoteId,
+          amountNgn: quote.amountNgn,
+          estimatedUsdc: quote.estimatedUsdc,
+          fxRate: quote.fxRate,
+          fees: quote.fees,
+          totalUsdcAfterFees: quote.totalUsdcAfterFees,
+          expiresAt: quote.expiresAt.toISOString(),
+          createdAt: quote.createdAt.toISOString(),
+        }
+
+        res.json(stakingQuoteResponseSchema.parse(response))
+      } catch (error) {
+        next(error)
+      }
+    },
+  )
+
+  /**
+   * POST /api/staking/stake-ngn
+   * 
+   * Stake NGN amount with conversion to USDC.
+   */
+  router.post(
+    '/stake-ngn',
+    authenticateToken,
+    validate(stakeNgnRequestSchema, 'body'),
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { quoteId } = req.body as StakeNgnRequest
+        const userId = req.user!.id
+
+        const quote = stakingQuoteStore.getById(quoteId)
+        if (!quote) {
+          throw new AppError(ErrorCode.NOT_FOUND, 404, 'Quote not found')
+        }
+
+        if (quote.userId !== userId) {
+          throw new AppError(ErrorCode.FORBIDDEN, 403, 'Quote does not belong to user')
+        }
+
+        if (new Date() > quote.expiresAt) {
+          stakingQuoteStore.deleteById(quoteId)
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Quote has expired')
+        }
+
+        // Check NGN wallet balance
+        const ngnBalance = await ngnWalletService.getBalance(userId)
+        if (ngnBalance.availableNgn < quote.amountNgn) {
+          throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Insufficient NGN balance')
+        }
+
+        // Reserve NGN funds
+        // await ngnWalletService.reserveFunds(userId, quote.amountNgn, quote.quoteId)
+        // TODO: Implement reserveFunds in NgnWalletService
+
+        // Create staking record
+        const stake = ngnStakeStore.create({
+          quoteId,
+          userId,
+          amountNgn: quote.amountNgn,
+          estimatedUsdc: quote.estimatedUsdc,
+          status: 'ngn_reserved',
+          amountUsdc: null,
+          txHash: null,
+          completedAt: null,
+        })
+
+        // Update timeline for first step
+        ngnStakeStore.updateStatus(stake.stakeId, 'ngn_reserved')
+
+        // Start conversion process (mock - in production would call conversion service)
+        setTimeout(async () => {
+          try {
+            ngnStakeStore.updateStatus(stake.stakeId, 'conversion_processing')
+            
+            // Mock conversion delay
+            setTimeout(async () => {
+              try {
+                // Mock USDC staking
+                ngnStakeStore.updateStatus(stake.stakeId, 'usdc_staked', {
+                  amountUsdc: quote.estimatedUsdc,
+                })
+
+                // Mock receipt recording
+                setTimeout(async () => {
+                  try {
+                    ngnStakeStore.updateStatus(stake.stakeId, 'receipt_recorded', {
+                      txHash: `0x${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
+                    })
+                  } catch (error) {
+                    logger.error('Failed to record receipt', { stakeId: stake.stakeId, error })
+                  }
+                }, 5000) // 5 seconds for receipt recording
+              } catch (error) {
+                logger.error('Failed to stake USDC', { stakeId: stake.stakeId, error })
+                ngnStakeStore.updateStatus(stake.stakeId, 'failed')
+              }
+            }, 10000) // 10 seconds for conversion
+          } catch (error) {
+            logger.error('Failed to process conversion', { stakeId: stake.stakeId, error })
+            ngnStakeStore.updateStatus(stake.stakeId, 'failed')
+          }
+        }, 2000) // 2 seconds to start conversion
+
+        // Delete the quote
+        stakingQuoteStore.deleteById(quoteId)
+
+        logger.info('NGN staking initiated', {
+          stakeId: stake.stakeId,
+          quoteId,
+          amountNgn: quote.amountNgn,
+          userId,
+          requestId: req.requestId,
+        })
+
+        const response: StakeNgnResponse = {
+          success: true,
+          stakeId: stake.stakeId,
+          status: stake.status === 'ngn_reserved' ? 'pending' : stake.status === 'failed' ? 'failed' : 'processing',
+          timeline: stake.timeline.map(step => ({
+            ...step,
+            timestamp: step.timestamp?.toISOString() || null,
+          })),
+          amountNgn: stake.amountNgn,
+          estimatedUsdc: stake.estimatedUsdc,
+          createdAt: stake.createdAt.toISOString(),
+        }
+
+        res.status(201).json(stakeNgnResponseSchema.parse(response))
+      } catch (error) {
+        next(error)
+      }
+    },
+  )
+
+  /**
+   * GET /api/staking/status/:stakeId
+   * 
+   * Get status of NGN staking operation.
+   */
+  router.get(
+    '/status/:stakeId',
+    authenticateToken,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { stakeId } = req.params
+        const userId = req.user!.id
+
+        const stake = ngnStakeStore.getById(stakeId)
+        if (!stake) {
+          throw new AppError(ErrorCode.NOT_FOUND, 404, 'Stake not found')
+        }
+
+        if (stake.userId !== userId) {
+          throw new AppError(ErrorCode.FORBIDDEN, 403, 'Stake does not belong to user')
+        }
+
+        const response: StakingStatusResponse = {
+          stakeId: stake.stakeId,
+          status: stake.status,
+          timeline: stake.timeline.map(step => ({
+            ...step,
+            timestamp: step.timestamp?.toISOString() || null,
+          })),
+          amountNgn: stake.amountNgn,
+          amountUsdc: stake.amountUsdc,
+          txHash: stake.txHash,
+          createdAt: stake.createdAt.toISOString(),
+          completedAt: stake.completedAt?.toISOString() || null,
+        }
+
+        res.json(stakingStatusResponseSchema.parse(response))
       } catch (error) {
         next(error)
       }
