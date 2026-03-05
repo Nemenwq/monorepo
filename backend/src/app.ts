@@ -29,6 +29,7 @@ import { WalletServiceImpl } from "./services/walletService.js"
 import { NgnWalletService } from "./services/ngnWalletService.js"
 import { EnvironmentEncryptionService } from "./services/walletService.js"
 import { InMemoryWalletStore } from "./models/walletStore.js"
+import { InMemoryLinkedAddressStore } from "./models/linkedAddressStore.js"
 import { StubRewardsDataLayer } from "./services/stub-rewards-data-layer.js"
 import authRouter from "./routes/auth.js"
 import { StubReceiptRepository } from "./indexer/receipt-repository.js"
@@ -61,6 +62,7 @@ export function createApp() {
   const walletStore = new InMemoryWalletStore()
   const encryptionService = new EnvironmentEncryptionService(env.ENCRYPTION_KEY)
   const walletService = new WalletServiceImpl(walletStore, encryptionService)
+  const linkedAddressStore = new InMemoryLinkedAddressStore()
   const ngnWalletService = new NgnWalletService()
 
   const rewardsDataLayer = new StubRewardsDataLayer()
@@ -110,7 +112,7 @@ export function createApp() {
   app.use('/api/admin', createAdminRouter(sorobanAdapter))
   app.use('/api/deals', createDealsRouter())
   app.use('/api/whistleblower', createWhistleblowerRouter(earningsService))
-  app.use('/api/staking', createStakingRouter(sorobanAdapter, ngnWalletService))
+  app.use('/api/staking', createStakingRouter(sorobanAdapter, ngnWalletService, walletService, linkedAddressStore))
   app.use('/api/webhooks', createWebhooksRouter())
   app.use('/api/deposits', createDepositsRouter(conversionService))
 

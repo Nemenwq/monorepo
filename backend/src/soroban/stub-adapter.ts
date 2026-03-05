@@ -45,6 +45,20 @@ export class StubSorobanAdapter implements SorobanAdapter {
           console.log(`[Stub] debit(${account}, ${amount.toString()}) -> new balance: ${newBalance.toString()}`)
      }
 
+     async getStakedBalance(account: string): Promise<bigint> {
+          const hash = this.simpleHash(`staked:${this.config.contractId ?? 'stub'}:${account}`)
+          const staked = BigInt(hash % 5_000) * 1_000_000n
+          console.log(`[Stub] getStakedBalance(${account}) -> ${staked.toString()}`)
+          return staked
+     }
+
+     async getClaimableRewards(account: string): Promise<bigint> {
+          const hash = this.simpleHash(`claimable:${this.config.contractId ?? 'stub'}:${account}`)
+          const claimable = BigInt(hash % 250) * 1_000_000n
+          console.log(`[Stub] getClaimableRewards(${account}) -> ${claimable.toString()}`)
+          return claimable
+     }
+
      async recordReceipt(params: RecordReceiptParams): Promise<void> {
           // Stub: log the receipt recording. In production, calls the Soroban contract.
           // TODO: Replace with: client.invoke('record_receipt', params)

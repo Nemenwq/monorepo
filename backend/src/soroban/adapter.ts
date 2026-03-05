@@ -22,6 +22,8 @@ export interface SorobanAdapter {
   getBalance(account: string): Promise<bigint>
   credit(account: string, amount: bigint): Promise<void>
   debit(account: string, amount: bigint): Promise<void>
+  getStakedBalance(account: string): Promise<bigint>
+  getClaimableRewards(account: string): Promise<bigint>
   recordReceipt(params: RecordReceiptParams): Promise<void>
   getConfig(): SorobanConfig
   getReceiptEvents(fromLedger: number | null): Promise<RawReceiptEvent[]>

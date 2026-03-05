@@ -3,14 +3,22 @@ import { createApp } from '../app.js'
 import { outboxStore } from '../outbox/index.js'
 import request from 'supertest'
 import { TxType, OutboxStatus } from '../outbox/types.js'
+import { sessionStore, userStore } from '../models/authStore.js'
+import { StubSorobanAdapter } from '../soroban/stub-adapter.js'
 
 describe('Staking API', () => {
   let app: any
+  let authToken: string
 
   beforeEach(async () => {
     app = createApp()
     await outboxStore.clear()
     vi.clearAllMocks()
+
+    const email = 'staking-test@example.com'
+    userStore.getOrCreateByEmail(email)
+    authToken = 'test-token-staking'
+    sessionStore.create(email, authToken)
   })
 
   describe('POST /api/staking/stake', () => {
@@ -201,14 +209,27 @@ describe('Staking API', () => {
 
   describe('GET /api/staking/position', () => {
     it('should return staking position', async () => {
+      vi.spyOn(StubSorobanAdapter.prototype, 'getStakedBalance').mockResolvedValueOnce(1_000_000_000n)
+      vi.spyOn(StubSorobanAdapter.prototype, 'getClaimableRewards').mockResolvedValueOnce(50_250_000n)
+
       const response = await request(app)
         .get('/api/staking/position')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('x-wallet-address', 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF')
         .expect(200)
 
       expect(response.body.success).toBe(true)
       expect(response.body.position).toBeDefined()
-      expect(response.body.position.staked).toMatch(/^\d+(\.\d{1,6})?$/)
-      expect(response.body.position.claimable).toMatch(/^\d+(\.\d{1,6})?$/)
+      expect(response.body.position.staked).toBe('1000.000000')
+      expect(response.body.position.claimable).toBe('50.250000')
+    })
+
+    it('should require authentication', async () => {
+      const response = await request(app)
+        .get('/api/staking/position')
+        .expect(401)
+
+      expect(response.body.error.code).toBe('UNAUTHORIZED')
     })
   })
 })

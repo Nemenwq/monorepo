@@ -5,11 +5,15 @@ import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
 import { validate } from '../middleware/validate.js'
+import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
 import { depositStore } from '../models/depositStore.js'
+import { LinkedAddressStore } from '../models/linkedAddressStore.js'
+import { env } from '../schemas/env.js'
 import { depositInitiateSchema, type DepositInitiateRequest } from '../schemas/deposit.js'
 import { stakeFromDepositSchema, type StakeFromDepositRequest } from '../schemas/stakeFromDeposit.js'
 import { stakeFinalizeSchema, type StakeFinalizeRequest } from '../schemas/stakeFinalize.js'
 import { conversionStore } from '../models/conversionStore.js'
+import { WalletService } from '../services/walletService.js'
 import {
   stakeSchema,
   unstakeSchema,
@@ -20,23 +24,20 @@ import {
   type ClaimStakeRewardRequest,
   type StakingPositionResponse,
 } from '../schemas/staking.js'
-import {
-  stakingQuoteRequestSchema,
-  stakingQuoteResponseSchema,
-  stakeNgnRequestSchema,
-  stakeNgnResponseSchema,
-  stakingStatusResponseSchema,
-  type StakingQuoteRequest,
-  type StakingQuoteResponse,
-  type StakeNgnRequest,
-  type StakeNgnResponse,
-  type StakingStatusResponse,
-} from '../schemas/stakingNgn.js'
-import { stakingQuoteStore, ngnStakeStore } from '../models/stakingNgnStore.js'
-import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
-import { NgnWalletService } from '../services/ngnWalletService.js'
 
-export function createStakingRouter(adapter: SorobanAdapter, ngnWalletService: NgnWalletService) {
+function formatAmount6(amountMicro: bigint): string {
+  const negative = amountMicro < 0n
+  const abs = negative ? -amountMicro : amountMicro
+  const whole = abs / 1_000_000n
+  const frac = (abs % 1_000_000n).toString().padStart(6, '0')
+  return `${negative ? '-' : ''}${whole.toString()}.${frac}`
+}
+
+export function createStakingRouter(
+  adapter: SorobanAdapter,
+  walletService: WalletService,
+  linkedAddressStore: LinkedAddressStore,
+) {
   const router = Router()
   const sender = new OutboxSender(adapter)
 
@@ -451,21 +452,57 @@ export function createStakingRouter(adapter: SorobanAdapter, ngnWalletService: N
    */
   router.get(
     '/position',
-    async (req: Request, res: Response, next: NextFunction) => {
+    authenticateToken,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        // Mock implementation - in a real system this would query the staking contract
-        const mockPosition: StakingPositionResponse = {
-          staked: '1000.000000',
-          claimable: '50.250000',
+        const userId = req.user?.id
+        if (!userId) {
+          throw new AppError(ErrorCode.UNAUTHORIZED, 401, 'Authentication required')
         }
+
+        const accountHeader = req.headers['x-wallet-address']
+        let account: string
+        if (typeof accountHeader === 'string' && accountHeader.length > 0) {
+          account = accountHeader
+        } else if (env.CUSTODIAL_MODE_ENABLED) {
+          try {
+            account = await walletService.getPublicAddress(userId)
+          } catch (error) {
+            if (error instanceof Error && error.message.includes('Wallet not found')) {
+              throw new AppError(ErrorCode.UNAUTHORIZED, 401, 'User wallet not found')
+            }
+            throw error
+          }
+        } else {
+          const linked = await linkedAddressStore.getLinkedAddress(userId)
+          if (!linked) {
+            throw new AppError(
+              ErrorCode.VALIDATION_ERROR,
+              400,
+              'No linked wallet address found for user',
+            )
+          }
+          account = linked
+        }
+
+        const [stakedMicro, claimableMicro] = await Promise.all([
+          adapter.getStakedBalance(account),
+          adapter.getClaimableRewards(account),
+        ])
+
+        const position: StakingPositionResponse = stakingPositionSchema.parse({
+          staked: formatAmount6(stakedMicro),
+          claimable: formatAmount6(claimableMicro),
+        })
 
         logger.info('Staking position requested', {
           requestId: req.requestId,
+          userId,
         })
 
         res.status(200).json({
           success: true,
-          position: mockPosition,
+          position,
         })
       } catch (error) {
         next(error)
