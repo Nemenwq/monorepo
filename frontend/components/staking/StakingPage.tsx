@@ -3,6 +3,8 @@
 import { claimRewards, getStakingPosition, stakeTokens, StakingPositionReponse, unstakeTokens } from "@/lib/config";
 import React, { useEffect, useState } from "react";
 import { Button } from "../ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { NgnStakingComponent } from "./NgnStakingComponent";
 
 export default function StakingPage() {
   const [stakingPosition, setStakingPosition] = useState<StakingPositionReponse | null>(null);
@@ -21,7 +23,6 @@ export default function StakingPage() {
         console.error("Failed to fatch staking position", err);
       });
   }, []);
-
 
 
 
@@ -86,6 +87,7 @@ export default function StakingPage() {
 
 
 
+
   //  Function to unstake token
   const handleUnstake = async () => {
     if (!unstakeAmount || Number(unstakeAmount) <= 0) {
@@ -115,6 +117,7 @@ export default function StakingPage() {
       setStatus(err.message || "Unstake failed")
     }
   }
+
 
 
 
@@ -149,7 +152,7 @@ export default function StakingPage() {
     if (value === '' || !isNaN(Number(value))) {
       setStakeAmount(value);
     }
-  }
+  };
 
 
   const handleUnstakeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,7 +162,7 @@ export default function StakingPage() {
     if (value === '' || !isNaN(Number(value))) {
       setUnstakeAmount(value);
     }
-  }
+  };
 
 
 
@@ -182,58 +185,76 @@ export default function StakingPage() {
         </p>
       </div>
 
-      {/* Stake Form */}
-      <form className="mb-6 border p-4 rounded-lg">
-        <h2 className="font-semibold mb-2">Stake Tokens</h2>
-        <input
-          type="text"
-          placeholder="Amount to stake"
-          value={stakeAmount}
-          onChange={handleStakeInput}
-          className="border p-2 rounded mr-2"
-        />
+      {/* Staking Mode Tabs */}
+      <Tabs defaultValue="ngn" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="ngn" className="font-semibold">
+            NGN Staking (Default)
+          </TabsTrigger>
+          <TabsTrigger value="usdc" className="font-semibold">
+            USDC Staking (Advanced)
+          </TabsTrigger>
+        </TabsList>
 
-        <Button
-          type="button"
-          onClick={handleStake}
-          className="border-3 border-foreground cursor-pointer  font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all text-foreground"
-          variant={"secondary"}
-        >
-          Stake
-        </Button>
-      </form>
+        <TabsContent value="ngn">
+          <NgnStakingComponent />
+        </TabsContent>
 
-      {/* Unstake Form */}
-      <form className="mb-6 border p-4 rounded-lg ">
-        <h2 className="font-semibold mb-2">Unstake Tokens</h2>
-        <input
-          type="text"
-          placeholder="Amount to unstake"
-          value={unstakeAmount}
-          onChange={handleUnstakeInput}
-          className="border p-2 rounded mr-2"
-        />
+        <TabsContent value="usdc" className="space-y-6">
+          {/* Stake Form */}
+          <form className="border p-4 rounded-lg">
+            <h2 className="font-semibold mb-2">Stake USDC Tokens</h2>
+            <input
+              type="text"
+              placeholder="Amount to stake"
+              value={stakeAmount}
+              onChange={handleStakeInput}
+              className="border p-2 rounded mr-2"
+            />
 
-        <Button
-          type="button"
-          onClick={handleUnstake}
-          className="border-3 border-foreground cursor-pointer  font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all text-foreground"
-          variant={"destructive"}
-        >
-          Unstake Tokens
-        </Button>
-      </form>
+            <Button
+              type="button"
+              onClick={handleStake}
+              className="border-3 border-foreground cursor-pointer  font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all text-foreground"
+              variant={"secondary"}
+            >
+              Stake
+            </Button>
+          </form>
 
-      {/* Claim Rewards */}
-      <div className="mb-6">
+          {/* Unstake Form */}
+          <form className="border p-4 rounded-lg">
+            <h2 className="font-semibold mb-2">Unstake USDC Tokens</h2>
+            <input
+              type="text"
+              placeholder="Amount to unstake"
+              value={unstakeAmount}
+              onChange={handleUnstakeInput}
+              className="border p-2 rounded mr-2"
+            />
 
-        <Button
-          onClick={handleClaim}
-          className="border-3 border-foreground cursor-pointer  font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all text-foreground"
-          variant={"default"}
-        >
-          Claim Rewards  </Button>
-      </div>
+            <Button
+              type="button"
+              onClick={handleUnstake}
+              className="border-3 border-foreground cursor-pointer  font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all text-foreground"
+              variant={"destructive"}
+            >
+              Unstake Tokens
+            </Button>
+          </form>
+
+          {/* Claim Rewards */}
+          <div>
+            <Button
+              onClick={handleClaim}
+              className="border-3 border-foreground cursor-pointer  font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all text-foreground"
+              variant={"default"}
+            >
+              Claim Rewards
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Status */}
       <div>
