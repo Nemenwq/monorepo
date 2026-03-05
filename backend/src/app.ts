@@ -110,7 +110,7 @@ export function createApp() {
   app.use('/api/admin', createAdminRouter(sorobanAdapter))
   app.use('/api/deals', createDealsRouter())
   app.use('/api/whistleblower', createWhistleblowerRouter(earningsService))
-  app.use('/api/staking', createStakingRouter(sorobanAdapter))
+  app.use('/api/staking', createStakingRouter(sorobanAdapter, ngnWalletService))
   app.use('/api/webhooks', createWebhooksRouter())
   app.use('/api/deposits', createDepositsRouter(conversionService))
 
