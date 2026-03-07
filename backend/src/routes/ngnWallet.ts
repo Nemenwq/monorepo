@@ -12,6 +12,7 @@ import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
 import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
+import { requireNotFrozen } from '../middleware/risk.js'
 
 export function createNgnWalletRouter(ngnWalletService: NgnWalletService): Router {
   const router = Router()
@@ -77,10 +78,12 @@ export function createNgnWalletRouter(ngnWalletService: NgnWalletService): Route
   /**
    * POST /api/wallet/ngn/withdraw/initiate
    * Initiates a new withdrawal request
+   * Requires user to not be frozen
    */
   router.post(
     '/withdraw/initiate',
     authenticateToken,
+    requireNotFrozen,
     validate(withdrawalRequestSchema, 'body'),
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {

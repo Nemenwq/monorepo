@@ -38,7 +38,7 @@ export const ngnBalanceResponseSchema = z.object({
 
 export const ngnLedgerEntrySchema = z.object({
   id: z.string(),
-  type: z.string(),
+  type: z.enum(['top_up', 'topup_confirmed', 'top_up_reversed', 'topup_reversed', 'withdrawal', 'stake', 'stake_reserve', 'stake_release', 'unstake', 'reward', 'conversion_debit']),
   amountNgn: z.number(),
   status: z.enum(['pending', 'approved', 'rejected', 'confirmed', 'failed', 'reversed']),
   timestamp: z.string(),

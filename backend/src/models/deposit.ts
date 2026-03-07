@@ -47,6 +47,8 @@ export interface DepositRecord {
   createdAt: Date
   updatedAt: Date
   consumedAt: Date | null
+  reversedAt: Date | null
+  reversalRef: string | null
 }
 
 export interface ConfirmDepositRecordInput {

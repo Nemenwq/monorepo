@@ -9,6 +9,8 @@ import {
 import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
+import { userRiskStateStore } from '../models/userRiskStateStore.js'
+import { depositStore } from '../models/depositStore.js'
 
 export class NgnWalletService {
   // In-memory storage for demo purposes
@@ -111,6 +113,162 @@ export class NgnWalletService {
     return balance
   }
 
+  /**
+   * Check if user is frozen (either by negative balance or manual freeze)
+   */
+  async isUserFrozen(userId: string): Promise<boolean> {
+    const riskState = await userRiskStateStore.getByUserId(userId)
+    if (riskState?.isFrozen) {
+      return true
+    }
+
+    const balance = await this.getBalance(userId)
+    return balance.totalNgn < 0
+  }
+
+  /**
+   * Ensure user is not frozen before allowing risky operations
+   */
+  async requireNotFrozen(userId: string): Promise<void> {
+    const frozen = await this.isUserFrozen(userId)
+    if (frozen) {
+      const balance = await this.getBalance(userId)
+      const riskState = await userRiskStateStore.getByUserId(userId)
+      
+      let message = 'Account frozen. '
+      if (balance.totalNgn < 0) {
+        message += `Negative balance: ${balance.totalNgn} NGN. Please top up to continue.`
+      } else if (riskState?.freezeReason === 'MANUAL') {
+        message += 'Manual freeze by admin. Contact support.'
+      } else if (riskState?.freezeReason === 'COMPLIANCE') {
+        message += 'Compliance review required. Contact support.'
+      }
+
+      throw new AppError(ErrorCode.ACCOUNT_FROZEN, 403, message)
+    }
+  }
+
+  /**
+   * Process a deposit reversal/chargeback
+   * This is idempotent based on (provider, providerRef, eventType)
+   */
+  async processDepositReversal(
+    provider: string,
+    providerRef: string,
+    reversalRef: string
+  ): Promise<void> {
+    logger.info('Processing deposit reversal', { provider, providerRef, reversalRef })
+
+    // Find the original deposit
+    const deposit = await depositStore.getByProviderRef(provider, providerRef)
+    if (!deposit) {
+      logger.warn('Deposit not found for reversal', { provider, providerRef })
+      throw new AppError(ErrorCode.NOT_FOUND, 404, 'Original deposit not found')
+    }
+
+    // Idempotent check - if already reversed, skip
+    if (deposit.reversedAt) {
+      logger.info('Deposit already reversed, skipping', { 
+        depositId: deposit.depositId, 
+        reversedAt: deposit.reversedAt 
+      })
+      return
+    }
+
+    // Mark deposit as reversed
+    await depositStore.markReversed(deposit.depositId, reversalRef)
+
+    // Write reversal ledger entry (negative amount)
+    const reversalEntry: NgnLedgerEntry = {
+      id: `reversal-${deposit.depositId}`,
+      type: 'top_up_reversed',
+      amountNgn: -deposit.amountNgn,
+      status: 'confirmed',
+      timestamp: new Date().toISOString(),
+      reference: reversalRef,
+    }
+    this.ledger.unshift(reversalEntry)
+
+    // Update user balance
+    const balance = await this.getBalance(deposit.userId)
+    const newTotalNgn = balance.totalNgn - deposit.amountNgn
+    const newAvailableNgn = balance.availableNgn - deposit.amountNgn
+
+    this.balances.set(deposit.userId, {
+      availableNgn: newAvailableNgn,
+      heldNgn: balance.heldNgn,
+      totalNgn: newTotalNgn,
+    })
+
+    logger.info('Balance updated after reversal', {
+      userId: deposit.userId,
+      oldTotal: balance.totalNgn,
+      newTotal: newTotalNgn,
+      reversalAmount: deposit.amountNgn,
+    })
+
+    // Auto-freeze if balance is now negative
+    if (newTotalNgn < 0) {
+      await userRiskStateStore.freeze(
+        deposit.userId,
+        'NEGATIVE_BALANCE',
+        `Auto-frozen due to deposit reversal. Deficit: ${Math.abs(newTotalNgn)} NGN`
+      )
+      logger.warn('User frozen due to negative balance after reversal', {
+        userId: deposit.userId,
+        totalNgn: newTotalNgn,
+      })
+    }
+  }
+
+  /**
+   * Process a top-up and auto-unfreeze if balance becomes positive
+   */
+  async processTopUp(userId: string, amountNgn: number, reference: string): Promise<void> {
+    logger.info('Processing top-up', { userId, amountNgn, reference })
+
+    const balance = await this.getBalance(userId)
+    const newTotalNgn = balance.totalNgn + amountNgn
+    const newAvailableNgn = balance.availableNgn + amountNgn
+
+    this.balances.set(userId, {
+      availableNgn: newAvailableNgn,
+      heldNgn: balance.heldNgn,
+      totalNgn: newTotalNgn,
+    })
+
+    // Add ledger entry
+    const topUpEntry: NgnLedgerEntry = {
+      id: `topup-${Date.now()}`,
+      type: 'top_up',
+      amountNgn,
+      status: 'confirmed',
+      timestamp: new Date().toISOString(),
+      reference,
+    }
+    this.ledger.unshift(topUpEntry)
+
+    logger.info('Balance updated after top-up', {
+      userId,
+      oldTotal: balance.totalNgn,
+      newTotal: newTotalNgn,
+      topUpAmount: amountNgn,
+    })
+
+    // Auto-unfreeze if balance is now non-negative and freeze reason is NEGATIVE_BALANCE
+    const riskState = await userRiskStateStore.getByUserId(userId)
+    if (riskState?.isFrozen && riskState.freezeReason === 'NEGATIVE_BALANCE' && newTotalNgn >= 0) {
+      await userRiskStateStore.unfreeze(
+        userId,
+        `Auto-unfrozen after top-up. Balance restored to ${newTotalNgn} NGN`
+      )
+      logger.info('User auto-unfrozen after balance restored', {
+        userId,
+        totalNgn: newTotalNgn,
+      })
+    }
+  }
+
   async getLedger(userId: string, options: { limit?: number; cursor?: string } = {}): Promise<NgnLedgerResponse> {
     logger.info('Getting NGN ledger', { userId, options })
     
@@ -129,6 +287,9 @@ export class NgnWalletService {
 
   async initiateWithdrawal(userId: string, request: WithdrawalRequest): Promise<WithdrawalResponse> {
     logger.info('Initiating withdrawal', { userId, amount: request.amountNgn })
+
+    // Check if user is frozen
+    await this.requireNotFrozen(userId)
 
     // Check user balance
     const balance = await this.getBalance(userId)

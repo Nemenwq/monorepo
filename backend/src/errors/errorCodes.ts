@@ -62,4 +62,7 @@ export enum ErrorCode {
 
   // Infrastructure
   INTERNAL_ERROR = "INTERNAL_ERROR",
+
+  // Risk & Compliance
+  ACCOUNT_FROZEN = "ACCOUNT_FROZEN",
 }
