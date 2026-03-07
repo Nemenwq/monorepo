@@ -80,11 +80,6 @@ export class OutboxSender {
         throw new Error('Invalid staking payload: missing required field txType')
       }
 
-      const { createHash } = await import('node:crypto')
-      const externalRefHash = createHash('sha256')
-        .update(item.canonicalExternalRefV1)
-        .digest('hex')
-
       // For staking, we use a default dealId and tokenAddress since they're not relevant
       await this.adapter.recordReceipt({
         txId: item.txId,
@@ -92,7 +87,6 @@ export class OutboxSender {
         amountUsdc: payload.amountUsdc ? String(payload.amountUsdc) : '0',
         tokenAddress: process.env.USDC_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000',
         dealId: 'staking-transaction',
-        externalRefHash,
         amountNgn: payload.amountNgn != null ? Number(payload.amountNgn) : undefined,
         fxRate: payload.fxRateNgnPerUsdc != null ? Number(payload.fxRateNgnPerUsdc) : undefined,
         fxProvider: payload.fxProvider ? String(payload.fxProvider) : undefined,
@@ -110,11 +104,6 @@ export class OutboxSender {
       throw new Error('Invalid receipt payload: missing required fields (dealId, amountUsdc, tokenAddress, txType)')
     }
 
-    const { createHash } = await import('node:crypto')
-    const externalRefHash = createHash('sha256')
-      .update(item.canonicalExternalRefV1)
-      .digest('hex')
-
     await this.adapter.recordReceipt({
       txId: item.txId,
       txType: item.txType as import('./types.js').TxType,
@@ -122,7 +111,6 @@ export class OutboxSender {
       tokenAddress: String(payload.tokenAddress),
       dealId: String(payload.dealId),
       listingId: payload.listingId ? String(payload.listingId) : undefined,
-      externalRefHash,
       amountNgn: payload.amountNgn != null ? Number(payload.amountNgn) : undefined,
       fxRate: payload.fxRateNgnPerUsdc != null ? Number(payload.fxRateNgnPerUsdc) : undefined,
       fxProvider: payload.fxProvider ? String(payload.fxProvider) : undefined,
