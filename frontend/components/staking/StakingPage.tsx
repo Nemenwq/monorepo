@@ -10,6 +10,7 @@ import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
 import { Loader2, Wallet, Coins, AlertCircle } from "lucide-react";
+import { handleError, showSuccessToast } from "@/lib/toast";
 
 type StakingMode = "ngn_balance" | "usdc";
 
@@ -31,7 +32,7 @@ export default function StakingPage() {
     getStakingPosition()
       .then((data) => setStakingPosition(data))
       .catch((err: Error) => {
-        console.error("Failed to fetch staking position", err);
+        handleError(err, "Failed to fetch staking position");
       });
   }, []);
 
@@ -41,7 +42,7 @@ export default function StakingPage() {
       getNgnBalance()
         .then((balance) => setNgnBalance(balance))
         .catch((err: Error) => {
-          console.error("Failed to fetch NGN balance", err);
+          handleError(err, "Failed to fetch NGN balance");
           setStatus("Failed to load NGN balance");
         })
         .finally(() => setIsLoadingBalance(false));
@@ -106,7 +107,9 @@ export default function StakingPage() {
         const res = await stakeFromNgnBalance(amount)
         
         if (res.status === "CONFIRMED") {
-          setStatus(`Successfully staked ${res.amountUsdc || amount} USDC from ₦${amount.toLocaleString()}`)
+          const successMsg = `Successfully staked ${res.amountUsdc || amount} USDC from ₦${amount.toLocaleString()}`
+          setStatus(successMsg)
+          showSuccessToast(successMsg)
           // Refresh NGN balance
           const updatedBalance = await getNgnBalance()
           setNgnBalance(updatedBalance)
@@ -124,6 +127,7 @@ export default function StakingPage() {
 
         if (res.status === "CONFIRMED") {
           setStatus("Stake confirmed on-chain")
+          showSuccessToast("Stake confirmed on-chain")
         } else {
           setStatus("Stake queued for retry")
         }
@@ -133,6 +137,7 @@ export default function StakingPage() {
         setStakeAmount("")
       }
     } catch (err: any) {
+      handleError(err, "Failed to stake")
       setStatus(err.message || "Stake failed")
     } finally {
       setIsStaking(false)
@@ -157,6 +162,7 @@ export default function StakingPage() {
 
       if (res.status === "CONFIRMED") {
         setStatus("Unstake confirmed on-chain")
+        showSuccessToast("Unstake confirmed on-chain")
       } else {
         setStatus("Unstake queued for retry")
       }
@@ -167,6 +173,7 @@ export default function StakingPage() {
       setUnstakeAmount("")
 
     } catch (err: any) {
+      handleError(err, "Failed to unstake")
       setStatus(err.message || "Unstake failed")
     }
   }
@@ -184,6 +191,7 @@ export default function StakingPage() {
 
       if (res.status === "CONFIRMED") {
         setStatus("Rewards claimed")
+        showSuccessToast("Rewards claimed successfully")
       } else {
         setStatus("Claim queued for retry")
       }
@@ -192,6 +200,7 @@ export default function StakingPage() {
       updatePosition({ claimableDelta: -claimable })
 
     } catch (err: any) {
+      handleError(err, "Failed to claim rewards")
       setStatus(err.message || "Claim failed")
     }
   }

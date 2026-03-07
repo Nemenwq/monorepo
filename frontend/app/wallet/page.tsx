@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, ArrowDownToLine, ArrowUpRight, Info, RefreshCw, Wallet, ExternalLink } from "lucide-react";
+import { handleError } from "@/lib/toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -100,6 +101,7 @@ export default function WalletPage() {
         }
       } catch (err) {
         if (!cancelled) {
+          handleError(err, "Failed to load wallet data");
           const message = err instanceof Error ? err.message : "Something went wrong";
           setBalanceState({ type: "error", message });
           setLedgerState({ type: "error", message });

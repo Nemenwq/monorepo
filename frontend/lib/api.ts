@@ -1,4 +1,20 @@
+import type { BackendErrorResponse } from './errors'
+
 const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+/**
+ * Custom error class for API errors that preserves backend error structure
+ */
+export class ApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly errorResponse: BackendErrorResponse | null,
+    message: string
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -28,13 +44,30 @@ export async function apiFetch<T>(
     });
 
     if (!res.ok) {
-      const message = await res.text();
-      throw new Error(message || `API error: ${res.status}`);
+      // Try to parse backend error response
+      let errorResponse: BackendErrorResponse | null = null
+      try {
+        const text = await res.text()
+        if (text) {
+          errorResponse = JSON.parse(text) as BackendErrorResponse
+        }
+      } catch {
+        // Not JSON, use text as message
+      }
+
+      const message = errorResponse?.error?.message || `API error: ${res.status}`
+      throw new ApiError(res.status, errorResponse, message)
     }
 
     return res.json();
 
   } catch (error) {
+    // Re-throw ApiError as-is
+    if (error instanceof ApiError) {
+      throw error
+    }
+
+    // Handle network errors
     if (error instanceof TypeError && error.message === "Failed to fetch") {
       throw new Error(
         `Cannot connect to backend at ${baseUrl}. Please ensure the backend server is running.`
