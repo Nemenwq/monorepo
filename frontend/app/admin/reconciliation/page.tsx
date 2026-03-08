@@ -11,19 +11,137 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOutboxItems, retryOutboxItem, retryAllOutboxItems, type OutboxItem } from "@/lib/reconciliationApi";
 import { handleError, showSuccessToast } from "@/lib/toast";
+import { parseBackendError, type ParsedError } from "@/lib/errors";
 
 type LoadState<T> =
   | { type: "loading" }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string; parsedError?: ParsedError }
   | { type: "success"; data: T };
 
 type OutboxStatus = "pending" | "sent" | "failed" | "all";
+
+const ITEMS_PER_PAGE = 10;
+
+function ErrorPanel({ 
+  error, 
+  onRetry, 
+  entityName = "items" 
+}: { 
+  readonly error: ParsedError | string; 
+  readonly onRetry: () => void; 
+  readonly entityName?: string;
+}) {
+  const userMessage = typeof error === 'string' ? error : error.userMessage;
+  const code = typeof error === 'string' ? 'ERROR' : error.code;
+  
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+      <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+      <p className="text-sm font-medium text-destructive mb-2">
+        {userMessage}
+      </p>
+      {code !== 'UNKNOWN_ERROR' && code !== 'ERROR' && (
+        <p className="text-xs text-muted-foreground mb-4">
+          Error code: {code}
+        </p>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onRetry}
+        className="border-3 border-foreground bg-background font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-05 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+      >
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Try again
+      </Button>
+    </div>
+  );
+}
+
+function EmptyState({ 
+  icon: Icon, 
+  title, 
+  description 
+}: { 
+  readonly icon: React.ComponentType<{ className?: string }>; 
+  readonly title: string; 
+  readonly description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+      <Icon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+      <p className="text-sm font-medium text-muted-foreground mb-2">
+        {title}
+      </p>
+      <p className="text-xs text-muted-foreground max-w-xs">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function SkeletonList({ count = 3 }: { readonly count?: number }) {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <Skeleton key={i} className="h-24 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  onPageChange,
+  totalItems,
+}: {
+  readonly currentPage: number;
+  readonly totalPages: number;
+  readonly onPageChange: (page: number) => void;
+  readonly totalItems: number;
+}) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t-2 border-foreground">
+      <p className="text-sm text-muted-foreground">
+        Showing page {currentPage} of {totalPages} ({totalItems} total)
+      </p>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+          className="border-3 border-foreground bg-background font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50 disabled:shadow-none disabled:translate-none"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-sm font-bold px-3 py-2 border-3 border-foreground bg-card min-w-[3rem] text-center">
+          {currentPage}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="border-3 border-foreground bg-background font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50 disabled:shadow-none disabled:translate-none"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -67,6 +185,10 @@ export default function ReconciliationDashboard() {
   const [outboxState, setOutboxState] = useState<LoadState<OutboxItem[]>>({ type: "loading" });
   const [outboxStatusFilter, setOutboxStatusFilter] = useState<OutboxStatus>("all");
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
   const fetchOutboxItems = useCallback(async () => {
     setOutboxState({ type: "loading" });
@@ -76,11 +198,14 @@ export default function ReconciliationDashboard() {
         limit: 100,
       });
       setOutboxState({ type: "success", data: response.items });
+      setTotalItems(response.total);
     } catch (err) {
       handleError(err, "Failed to load outbox items");
+      const parsedError = parseBackendError(err, "Failed to load outbox items");
       setOutboxState({
         type: "error",
-        message: err instanceof Error ? err.message : "Failed to load outbox items",
+        message: parsedError.message,
+        parsedError,
       });
     }
   }, [outboxStatusFilter]);
@@ -179,17 +304,11 @@ export default function ReconciliationDashboard() {
                 View pending, failed, and reversed deposits
               </p>
             </div>
-            <div className="flex items-center justify-center py-12 text-center">
-              <div className="space-y-2">
-                <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Deposit reconciliation endpoint not yet available
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  This feature will be available when the backend API is implemented
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              icon={FileText}
+              title="No deposits available"
+              description="Deposit reconciliation will be available when the backend API is implemented. This tab will show pending, failed, and reversed deposits."
+            />
           </Card>
         )}
 
@@ -202,17 +321,11 @@ export default function ReconciliationDashboard() {
                 View pending and failed NGN to USDC conversions
               </p>
             </div>
-            <div className="flex items-center justify-center py-12 text-center">
-              <div className="space-y-2">
-                <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Conversion reconciliation endpoint not yet available
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  This feature will be available when the backend API is implemented
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              icon={ArrowRightLeft}
+              title="No conversions available"
+              description="Conversion reconciliation will be available when the backend API is implemented. This tab will show pending and failed NGN to USDC conversions."
+            />
           </Card>
         )}
 
@@ -271,50 +384,40 @@ export default function ReconciliationDashboard() {
                 )}
               </div>
             </div>
-                {outboxState.type === "loading" && (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-24 w-full" />
-                    ))}
-                  </div>
+                {outboxState.type === "loading" && <SkeletonList count={3} />}
+
+                {outboxState.type === "error" && outboxState.parsedError && (
+                  <ErrorPanel
+                    error={outboxState.parsedError}
+                    onRetry={fetchOutboxItems}
+                    entityName="outbox items"
+                  />
                 )}
 
-                {outboxState.type === "error" && (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-                    <p className="text-sm font-medium text-destructive mb-2">
-                      {outboxState.message}
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={fetchOutboxItems}
-                      className="border-3 border-foreground bg-background font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Try again
-                    </Button>
-                  </div>
+                {outboxState.type === "error" && !outboxState.parsedError && (
+                  <ErrorPanel
+                    error={outboxState.message}
+                    onRetry={fetchOutboxItems}
+                    entityName="outbox items"
+                  />
                 )}
 
                 {outboxState.type === "success" && (
                   <>
                     {outboxState.data.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-sm font-medium text-muted-foreground mb-2">
-                          No outbox items found
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {outboxStatusFilter !== "all"
+                      <EmptyState
+                        icon={Inbox}
+                        title="No outbox items found"
+                        description={
+                          outboxStatusFilter !== "all"
                             ? `No items with status "${outboxStatusFilter}"`
-                            : "No outbox items in the system"}
-                        </p>
-                      </div>
+                            : "No outbox items in the system"
+                        }
+                      />
                     ) : (
                       <div className="space-y-4">
                         <div className="text-sm text-muted-foreground">
-                          Showing {outboxState.data.length} item{outboxState.data.length !== 1 ? "s" : ""}
+                          Showing {outboxState.data.length} item{outboxState.data.length !== 1 ? "s" : ""} of {totalItems}
                         </div>
                         {outboxState.data.map((item) => (
                           <Card
@@ -390,6 +493,12 @@ export default function ReconciliationDashboard() {
                               </div>
                             </Card>
                         ))}
+                        <PaginationControls
+                          currentPage={currentPage}
+                          totalPages={totalPages}
+                          onPageChange={setCurrentPage}
+                          totalItems={totalItems}
+                        />
                       </div>
                     )}
                   </>
