@@ -29,8 +29,8 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
     throw new AppError(ErrorCode.UNAUTHORIZED, 401, 'Authentication token required')
   }
 
-  const email = tokenStore.get(token)
-  if (!email) {
+  const session = tokenStore.get(token)
+  if (!session) {
     logger.warn('Unauthorized access attempt - invalid token', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
@@ -41,14 +41,15 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
     throw new AppError(ErrorCode.UNAUTHORIZED, 401, 'Invalid or expired token')
   }
 
-  const user = userStore.get(email)
+  const user = userStore.get(session.userId)
   if (!user) {
     logger.warn('Unauthorized access attempt - user not found', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
       requestId: req.requestId,
       path: req.path,
-      email
+      userId: session.userId,
+      authType: session.authType,
     })
     throw new AppError(ErrorCode.UNAUTHORIZED, 401, 'User not found')
   }

@@ -1,7 +1,14 @@
 import { Router, Request, Response } from "express"
 import { z } from "zod"
 import { generateOtp, generateToken, generateId } from "../utils/tokens.js"
-import { generateWalletChallenge, verifyWalletSignature, isValidEthereumAddress } from "../utils/walletAuth.js"
+import { Keypair, TransactionBuilder } from "@stellar/stellar-sdk"
+import {
+  createSep10ChallengeXdr,
+  verifySep10Challenge,
+  isValidStellarPublicKey,
+  getNetworkPassphrase,
+} from "../utils/walletAuth.js"
+import { env } from "../schemas/env.js"
 
 const router = Router()
 
@@ -29,16 +36,16 @@ const verifySchema = z.object({
 })
 
 const walletChallengeSchema = z.object({
-  address: z.string().refine(isValidEthereumAddress, {
-    message: "Invalid Ethereum address format"
-  })
+  publicKey: z.string().refine(isValidStellarPublicKey, {
+    message: "Invalid Stellar public key format",
+  }),
 })
 
 const walletVerifySchema = z.object({
-  address: z.string().refine(isValidEthereumAddress, {
-    message: "Invalid Ethereum address format"
+  publicKey: z.string().refine(isValidStellarPublicKey, {
+    message: "Invalid Stellar public key format",
   }),
-  signature: z.string().min(1, "Signature is required")
+  signedChallengeXdr: z.string().min(1, "signedChallengeXdr is required"),
 })
 
 router.post("/login", (req: Request, res: Response) => {
@@ -124,18 +131,30 @@ router.post("/wallet/challenge", (req: Request, res: Response) => {
     return
   }
 
-  const { address } = parsed.data
+  const { publicKey } = parsed.data
+  if (!env.SEP10_SIGNING_SECRET) {
+    res.status(500).json({ error: "Wallet auth is not configured" })
+    return
+  }
+
+  const networkPassphrase = getNetworkPassphrase(process.env.SOROBAN_NETWORK_PASSPHRASE)
+  const homeDomain = String(req.hostname || "localhost")
+  const { challengeXdr } = createSep10ChallengeXdr({
+    clientPublicKey: publicKey,
+    serverSigningSecret: env.SEP10_SIGNING_SECRET,
+    homeDomain,
+    networkPassphrase,
+  })
   
   // Check if wallet is already linked to another user
-  const existingUserId = walletToUserIdMap.get(address)
+  const existingUserId = walletToUserIdMap.get(publicKey)
   if (existingUserId) {
     // Wallet is already linked, allow re-authentication
-    const message = generateWalletChallenge(address)
     const expires = Date.now() + 5 * 60 * 1000 // 5 minutes
-    walletChallengeStore.set(address, { message, expires })
+    walletChallengeStore.set(publicKey, { message: challengeXdr, expires })
     
     res.json({ 
-      message,
+      challengeXdr,
       existingUser: true,
       userId: existingUserId
     })
@@ -143,11 +162,10 @@ router.post("/wallet/challenge", (req: Request, res: Response) => {
   }
 
   // New wallet authentication
-  const message = generateWalletChallenge(address)
   const expires = Date.now() + 5 * 60 * 1000 // 5 minutes
-  walletChallengeStore.set(address, { message, expires })
+  walletChallengeStore.set(publicKey, { message: challengeXdr, expires })
 
-  res.json({ message, existingUser: false })
+  res.json({ challengeXdr, existingUser: false })
 })
 
 router.post("/wallet/verify", (req: Request, res: Response) => {
@@ -157,30 +175,64 @@ router.post("/wallet/verify", (req: Request, res: Response) => {
     return
   }
 
-  const { address, signature } = parsed.data
+  const { publicKey, signedChallengeXdr } = parsed.data
+  if (!env.SEP10_SIGNING_SECRET) {
+    res.status(500).json({ error: "Wallet auth is not configured" })
+    return
+  }
+  const networkPassphrase = getNetworkPassphrase(process.env.SOROBAN_NETWORK_PASSPHRASE)
+  const homeDomain = String(req.hostname || "localhost")
+  let serverSigningPublicKey = ''
+  try {
+    serverSigningPublicKey = Keypair.fromSecret(env.SEP10_SIGNING_SECRET).publicKey()
+  } catch {
+    serverSigningPublicKey = ''
+  }
   
   // Get the challenge message
-  const challenge = walletChallengeStore.get(address)
+  const challenge = walletChallengeStore.get(publicKey)
   if (!challenge) {
     res.status(401).json({ error: "No challenge requested for this address" })
     return
   }
 
   if (Date.now() > challenge.expires) {
-    walletChallengeStore.delete(address)
+    walletChallengeStore.delete(publicKey)
     res.status(401).json({ error: "Challenge has expired" })
     return
   }
 
   // Verify the signature
-  if (!verifyWalletSignature(address, challenge.message, signature)) {
+  // The signed challenge contains the same tx body but with an additional client signature.
+  try {
+    const issuedTx = TransactionBuilder.fromXDR(challenge.message, networkPassphrase)
+    const signedTx = TransactionBuilder.fromXDR(signedChallengeXdr, networkPassphrase)
+    if (issuedTx.hash().toString('hex') !== signedTx.hash().toString('hex')) {
+      res.status(401).json({ error: "Invalid challenge" })
+      return
+    }
+  } catch {
+    res.status(401).json({ error: "Invalid challenge" })
+    return
+  }
+
+  // Verify SEP-10 style signed transaction
+  // NOTE: serverSigningPublicKey is derived implicitly by verifying the server signature inside the challenge.
+  // We skip explicit pubkey derivation here by accepting any server signature; this is tightened in walletAuth.
+  if (!verifySep10Challenge({
+    challengeXdr: signedChallengeXdr,
+    clientPublicKey: publicKey,
+    serverSigningPublicKey: serverSigningPublicKey,
+    homeDomain,
+    networkPassphrase,
+  })) {
     res.status(401).json({ error: "Invalid signature" })
     return
   }
 
-  walletChallengeStore.delete(address)
+  walletChallengeStore.delete(publicKey)
 
-  const existingUserId = walletToUserIdMap.get(address)
+  const existingUserId = walletToUserIdMap.get(publicKey)
   let user = existingUserId ? userStore.get(existingUserId) : undefined
   
   if (!user) {
@@ -188,13 +240,13 @@ router.post("/wallet/verify", (req: Request, res: Response) => {
     const id = generateId()
     user = {
       id,
-      walletAddress: address,
-      name: `Wallet ${address.slice(0, 6)}...${address.slice(-4)}`,
+      walletAddress: publicKey,
+      name: `Wallet ${publicKey.slice(0, 6)}...${publicKey.slice(-4)}`,
       role: "tenant",
       authType: "wallet"
     }
     userStore.set(id, user)
-    walletToUserIdMap.set(address, id)
+    walletToUserIdMap.set(publicKey, id)
   }
 
   const token = generateToken()
