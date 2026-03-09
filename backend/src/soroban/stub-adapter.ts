@@ -1,6 +1,7 @@
 import { SorobanAdapter, RecordReceiptParams } from './adapter.js'
 import { SorobanConfig } from './client.js'
 import { RawReceiptEvent } from '../indexer/event-parser.js'
+import { logger } from '../utils/logger.js'
 
 // In-memory store for stub balances
 const stubBalances = new Map<string, bigint>()
@@ -10,11 +11,10 @@ export class StubSorobanAdapter implements SorobanAdapter {
 
      constructor(config: SorobanConfig) {
           this.config = config
-          console.log('🔧 Using StubSorobanAdapter - no real Soroban calls will be made')
-          console.log(`📝 Configured with RPC: ${config.rpcUrl}`)
-          if (config.contractId) {
-               console.log(`📝 Contract ID: ${config.contractId}`)
-          }
+          logger.info('Using StubSorobanAdapter (no real Soroban calls)', {
+               rpcUrl: config.rpcUrl,
+               contractId: config.contractId,
+          })
      }
 
      async getBalance(account: string): Promise<bigint> {
@@ -24,7 +24,7 @@ export class StubSorobanAdapter implements SorobanAdapter {
                stubBalances.set(account, balance)
           }
           const balance = stubBalances.get(account)!
-          console.log(`[Stub] getBalance(${account}) -> ${balance.toString()}`)
+          logger.debug('StubSorobanAdapter.getBalance', { account, balance: balance.toString() })
           return balance
      }
 
@@ -32,7 +32,11 @@ export class StubSorobanAdapter implements SorobanAdapter {
           const currentBalance = await this.getBalance(account)
           const newBalance = currentBalance + amount
           stubBalances.set(account, newBalance)
-          console.log(`[Stub] credit(${account}, ${amount.toString()}) -> new balance: ${newBalance.toString()}`)
+          logger.debug('StubSorobanAdapter.credit', {
+               account,
+               amount: amount.toString(),
+               newBalance: newBalance.toString(),
+          })
      }
 
      async debit(account: string, amount: bigint): Promise<void> {
@@ -42,27 +46,36 @@ export class StubSorobanAdapter implements SorobanAdapter {
           }
           const newBalance = currentBalance - amount
           stubBalances.set(account, newBalance)
-          console.log(`[Stub] debit(${account}, ${amount.toString()}) -> new balance: ${newBalance.toString()}`)
+          logger.debug('StubSorobanAdapter.debit', {
+               account,
+               amount: amount.toString(),
+               newBalance: newBalance.toString(),
+          })
      }
 
      async getStakedBalance(account: string): Promise<bigint> {
           const hash = this.simpleHash(`staked:${this.config.contractId ?? 'stub'}:${account}`)
           const staked = BigInt(hash % 5_000) * 1_000_000n
-          console.log(`[Stub] getStakedBalance(${account}) -> ${staked.toString()}`)
+          logger.debug('StubSorobanAdapter.getStakedBalance', { account, staked: staked.toString() })
           return staked
      }
 
      async getClaimableRewards(account: string): Promise<bigint> {
           const hash = this.simpleHash(`claimable:${this.config.contractId ?? 'stub'}:${account}`)
           const claimable = BigInt(hash % 250) * 1_000_000n
-          console.log(`[Stub] getClaimableRewards(${account}) -> ${claimable.toString()}`)
+          logger.debug('StubSorobanAdapter.getClaimableRewards', { account, claimable: claimable.toString() })
           return claimable
      }
 
      async recordReceipt(params: RecordReceiptParams): Promise<void> {
           // Stub: log the receipt recording. In production, calls the Soroban contract.
           // TODO: Replace with: client.invoke('record_receipt', params)
-          console.log(`[Stub] recordReceipt txId=${params.txId} txType=${params.txType} amountUsdc=${params.amountUsdc} dealId=${params.dealId}`)
+          logger.debug('StubSorobanAdapter.recordReceipt', {
+               txId: params.txId,
+               txType: params.txType,
+               amountUsdc: params.amountUsdc,
+               dealId: params.dealId,
+          })
      }
 
      getConfig(): SorobanConfig {
