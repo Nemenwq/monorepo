@@ -61,7 +61,7 @@ function LoginForm() {
               </TabsTrigger>
               <TabsTrigger value="wallet" className="font-mono">
                 <Wallet className="w-4 h-4 mr-1" />
-                Wallet
+                Stellar Wallet
               </TabsTrigger>
             </TabsList>
 
