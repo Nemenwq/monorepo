@@ -57,6 +57,8 @@ The repository includes a migration runner script in `src/repositories/test.ts` 
 | API specification (OpenAPI) | [openapi.yml](openapi.yml) |
 | Error handling contract | [src/docs/ERROR-INFO.md](src/docs/ERROR-INFO.md) |
 | Soroban integration tests | [docs/soroban-integration-tests.md](docs/soroban-integration-tests.md) |
+| Admin signing service | [docs/ADMIN_SIGNING.md](docs/ADMIN_SIGNING.md) |
+| Webhook signature verification | [docs/WEBHOOK_SIGNATURE_VERIFICATION.md](docs/WEBHOOK_SIGNATURE_VERIFICATION.md) |
 
 ## API Specification
 
@@ -263,6 +265,14 @@ Environment variables:
 - `SOROBAN_RPC_URL`
 - `SOROBAN_NETWORK_PASSPHRASE`
 - `SOROBAN_CONTRACT_ID` (optional)
+- `SOROBAN_ADMIN_SECRET` (optional, required for admin operations)
+- `SOROBAN_ADMIN_SIGNING_ENABLED` (optional, default `false`)
+
+**Admin Signing**: Admin operations (pause/unpause, set_operator, init) require:
+- `SOROBAN_ADMIN_SECRET` - Admin secret key for signing transactions
+- `SOROBAN_ADMIN_SIGNING_ENABLED=true` - Feature flag to enable admin signing
+
+**Important**: Admin secrets should NOT be used in general request handlers. See [docs/ADMIN_SIGNING.md](docs/ADMIN_SIGNING.md) for best practices.
 
 
 ## Request IDs

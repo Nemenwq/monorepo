@@ -26,12 +26,21 @@ import {
   isDuplicateReceiptError,
   isTransientRpcError,
 } from './errors.js'
+import { AdminSigningService } from '../services/adminSigningService.js'
+import { env } from '../schemas/env.js'
 
 export class RealSorobanAdapter implements SorobanAdapter {
   private server: rpc.Server
+  private adminSigningService: AdminSigningService
 
   constructor(private config: SorobanConfig) {
     this.server = new rpc.Server(config.rpcUrl)
+    this.adminSigningService = new AdminSigningService({
+      enabled: env.SOROBAN_ADMIN_SIGNING_ENABLED,
+      adminSecret: config.adminSecret,
+      networkPassphrase: config.networkPassphrase,
+      server: this.server,
+    })
   }
 
   async getBalance(account: string): Promise<bigint> {
@@ -113,6 +122,10 @@ export class RealSorobanAdapter implements SorobanAdapter {
 
   /**
    * Record a receipt on-chain.
+   * 
+   * NOTE: This is NOT an admin operation. It's a regular operation that records transaction receipts.
+   * Currently uses admin secret for signing, but this may be refactored to use a different key
+   * in the future (e.g., operator key or dedicated receipt-signing key).
    * 
    * Idempotency: The txId serves as a deterministic idempotency key (SHA-256 of canonical external ref).
    * If a receipt with the same txId already exists, the contract returns an error that we catch
@@ -697,5 +710,135 @@ export class RealSorobanAdapter implements SorobanAdapter {
     }
 
     return null // Timeout
+  }
+
+  /**
+   * Admin operation: Pause a contract
+   * Requires SOROBAN_ADMIN_SIGNING_ENABLED=true
+   */
+  async pause(contractId: string): Promise<string> {
+    if (!contractId) {
+      contractId = this.config.contractId || ''
+    }
+    if (!contractId) {
+      throw new ConfigurationError('Contract ID required for pause operation')
+    }
+
+    // Load admin keypair to get public key for args
+    if (!this.config.adminSecret) {
+      throw new ConfigurationError('SOROBAN_ADMIN_SECRET not configured for pause operation')
+    }
+    const adminKeypair = Keypair.fromSecret(this.config.adminSecret)
+    const adminAddress = adminKeypair.publicKey()
+
+    return this.adminSigningService.executeAdminOperation({
+      contractId,
+      operation: 'pause',
+      args: [nativeToScVal(new Address(adminAddress))],
+      networkPassphrase: this.config.networkPassphrase,
+      adminSecret: this.config.adminSecret,
+      server: this.server,
+    })
+  }
+
+  /**
+   * Admin operation: Unpause a contract
+   * Requires SOROBAN_ADMIN_SIGNING_ENABLED=true
+   */
+  async unpause(contractId: string): Promise<string> {
+    if (!contractId) {
+      contractId = this.config.contractId || ''
+    }
+    if (!contractId) {
+      throw new ConfigurationError('Contract ID required for unpause operation')
+    }
+
+    // Load admin keypair to get public key for args
+    if (!this.config.adminSecret) {
+      throw new ConfigurationError('SOROBAN_ADMIN_SECRET not configured for unpause operation')
+    }
+    const adminKeypair = Keypair.fromSecret(this.config.adminSecret)
+    const adminAddress = adminKeypair.publicKey()
+
+    return this.adminSigningService.executeAdminOperation({
+      contractId,
+      operation: 'unpause',
+      args: [nativeToScVal(new Address(adminAddress))],
+      networkPassphrase: this.config.networkPassphrase,
+      adminSecret: this.config.adminSecret,
+      server: this.server,
+    })
+  }
+
+  /**
+   * Admin operation: Set operator for a contract
+   * Requires SOROBAN_ADMIN_SIGNING_ENABLED=true
+   */
+  async setOperator(contractId: string, operatorAddress: string | null): Promise<string> {
+    if (!contractId) {
+      contractId = this.config.contractId || ''
+    }
+    if (!contractId) {
+      throw new ConfigurationError('Contract ID required for setOperator operation')
+    }
+
+    // Load admin keypair to get public key for args
+    if (!this.config.adminSecret) {
+      throw new ConfigurationError('SOROBAN_ADMIN_SECRET not configured for setOperator operation')
+    }
+    const adminKeypair = Keypair.fromSecret(this.config.adminSecret)
+    const adminAddress = adminKeypair.publicKey()
+
+    // Create Option<Address> - Some(Address) or None
+    // nativeToScVal should handle undefined/null as None for Option types
+    const operatorOption = operatorAddress
+      ? nativeToScVal(new Address(operatorAddress))
+      : nativeToScVal(undefined)
+
+    return this.adminSigningService.executeAdminOperation({
+      contractId,
+      operation: 'set_operator',
+      args: [
+        nativeToScVal(new Address(adminAddress)),
+        operatorOption,
+      ],
+      networkPassphrase: this.config.networkPassphrase,
+      adminSecret: this.config.adminSecret,
+      server: this.server,
+    })
+  }
+
+  /**
+   * Admin operation: Initialize a contract
+   * Requires SOROBAN_ADMIN_SIGNING_ENABLED=true
+   */
+  async init(contractId: string, adminAddress: string, operatorAddress?: string): Promise<string> {
+    if (!contractId) {
+      contractId = this.config.contractId || ''
+    }
+    if (!contractId) {
+      throw new ConfigurationError('Contract ID required for init operation')
+    }
+
+    const args: xdr.ScVal[] = [
+      nativeToScVal(new Address(adminAddress)),
+    ]
+
+    if (operatorAddress) {
+      args.push(nativeToScVal(new Address(operatorAddress)))
+    }
+
+    if (!this.config.adminSecret) {
+      throw new ConfigurationError('SOROBAN_ADMIN_SECRET not configured for init operation')
+    }
+
+    return this.adminSigningService.executeAdminOperation({
+      contractId,
+      operation: 'init',
+      args,
+      networkPassphrase: this.config.networkPassphrase,
+      adminSecret: this.config.adminSecret,
+      server: this.server,
+    })
   }
 }

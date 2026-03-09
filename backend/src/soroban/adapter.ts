@@ -26,4 +26,10 @@ export interface SorobanAdapter {
   recordReceipt(params: RecordReceiptParams): Promise<void>
   getConfig(): SorobanConfig
   getReceiptEvents(fromLedger: number | null): Promise<RawReceiptEvent[]>
+  
+  // Admin operations (require SOROBAN_ADMIN_SIGNING_ENABLED=true)
+  pause?(contractId: string): Promise<string>
+  unpause?(contractId: string): Promise<string>
+  setOperator?(contractId: string, operatorAddress: string | null): Promise<string>
+  init?(contractId: string, adminAddress: string, operatorAddress?: string): Promise<string>
 }
