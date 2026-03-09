@@ -42,6 +42,8 @@ import { getPool } from "./db.js"
 import { StakingService } from "./services/stakingService.js"
 import { StakingFinalizer } from "./jobs/stakingFinalizer.js"
 import { initOutboxStore, PostgresOutboxStore } from "./outbox/store.js"
+import { OutboxSender } from "./outbox/sender.js"
+import { OutboxWorker } from "./outbox/worker.js"
 
 
 export function createApp() {
@@ -131,6 +133,19 @@ export function createApp() {
   // Outbox store — swap to Postgres when DATABASE_URL is set
   if (process.env.DATABASE_URL) {
     initOutboxStore(new PostgresOutboxStore())
+  }
+
+  // OutboxWorker — runs the retry loop in non-test environments
+  if (env.NODE_ENV !== 'test') {
+    const outboxSender = new OutboxSender(sorobanAdapter)
+    const outboxWorker = new OutboxWorker(outboxSender)
+    const intervalMs = parseInt(process.env.OUTBOX_WORKER_INTERVAL_MS ?? '60000', 10)
+    outboxWorker.start(intervalMs)
+
+    // Graceful shutdown
+    const stopWorker = () => outboxWorker.stop()
+    process.once('SIGTERM', stopWorker)
+    process.once('SIGINT', stopWorker)
   }
 
   // Indexer

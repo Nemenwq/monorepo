@@ -23,6 +23,7 @@ export const envSchema = z.object({
   CUSTODIAL_MODE_ENABLED: z.coerce.boolean().default(true),
   CUSTODIAL_SIGNING_PAUSED: z.coerce.boolean().default(false),
   WEBHOOK_SIGNATURE_ENABLED: z.coerce.boolean().default(false),
+  SOROBAN_ADMIN_SIGNING_ENABLED: z.coerce.boolean().default(false),
   WEBHOOK_SECRET: z.string().optional(),
   // Provider-specific webhook secrets for signature validation
   PAYSTACK_SECRET: z.string().optional(),

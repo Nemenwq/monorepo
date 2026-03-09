@@ -105,3 +105,20 @@ export function isValidStellarPublicKey(publicKey: string): boolean {
     return false
   }
 }
+
+/**
+ * Returns the canonical form of a Stellar public key:
+ * - Trims surrounding whitespace
+ * - Converts to uppercase (base32 is case-insensitive but the SDK expects uppercase)
+ * - Validates that the result is a proper Stellar public key (starts with "G")
+ *
+ * Throws an Error with a descriptive message if the address is invalid.
+ * All wallet auth paths must call this instead of .toLowerCase().
+ */
+export function normalizeStellarAddress(address: string): string {
+  const trimmed = address.trim().toUpperCase()
+  if (!isValidStellarPublicKey(trimmed)) {
+    throw new Error(`Invalid Stellar public key: "${address}". Must be a valid G... StrKey.`)
+  }
+  return trimmed
+}

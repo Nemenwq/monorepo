@@ -6,7 +6,7 @@ import { otpRequestRateLimit, walletAuthRateLimit } from '../middleware/authRate
 import { requestOtpSchema, verifyOtpSchema, walletChallengeSchema, walletVerifySchema } from '../schemas/auth.js'
 import { generateOtp, generateToken } from '../utils/tokens.js'
 import { generateOtpSalt, hashOtp, verifyOtpHash } from '../utils/otp.js'
-import { generateNonce, generateChallengeXdr, verifySignedChallenge } from '../utils/wallet.js'
+import { generateNonce, generateChallengeXdr, verifySignedChallenge, normalizeStellarAddress } from '../utils/wallet.js'
 import { otpChallengeStore, sessionStore, userStore, walletChallengeStore } from '../models/authStore.js'
 import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
 import { PostgresLinkedAddressStore } from '../models/linkedAddressStore.js'
@@ -133,7 +133,7 @@ router.post(
   walletAuthRateLimit(),
   async (req: Request, res: Response, next: NextFunction) => {
     const address = req.body.address as string
-    const normalizedAddress = address.toLowerCase()
+    const normalizedAddress = normalizeStellarAddress(address)
 
     // Check if wallet is already linked to another user
     const existingUser = await userStore.getByWalletAddress(normalizedAddress)
@@ -169,8 +169,8 @@ router.post(
     try {
       const address = req.body.address as string
       const signedChallengeXdr = req.body.signedChallengeXdr as string
-      // Stellar public keys are inherently uppercase — do not lowercase for SDK calls
-      const normalizedAddress = address.toLowerCase()
+      // Stellar public keys are base32/uppercase — use normalizeStellarAddress, never toLowerCase
+      const normalizedAddress = normalizeStellarAddress(address)
 
       const challenge = await walletChallengeStore.getByAddress(normalizedAddress)
       if (!challenge) {

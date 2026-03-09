@@ -24,6 +24,17 @@ export function createAdminRouter(adapter: SorobanAdapter, walletStore?: WalletS
   const router = Router()
   const sender = new OutboxSender(adapter)
 
+  // ---------------------------------------------------------------------------
+  // Admin secret guard — applies to every /outbox* subroute
+  // ---------------------------------------------------------------------------
+  function requireAdminSecret(req: Request, res: Response, next: NextFunction) {
+    const headerSecret = req.headers['x-admin-secret']
+    if (env.MANUAL_ADMIN_SECRET && headerSecret !== env.MANUAL_ADMIN_SECRET) {
+      return next(new AppError(ErrorCode.FORBIDDEN, 403, 'Invalid admin secret'))
+    }
+    return next()
+  }
+
   router.post(
     '/wallets/rewrap',
     async (req: Request, res: Response, next: NextFunction) => {
@@ -159,10 +170,10 @@ export function createAdminRouter(adapter: SorobanAdapter, walletStore?: WalletS
    * 
    * List outbox items, optionally filtered by status
    * Query params:
-   *   - status: pending | sent | failed (optional)
+   *   - status: pending | sent | failed | dead (optional)
    *   - limit: number (optional, default 100)
    */
-  router.get('/outbox', async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/outbox', requireAdminSecret, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { status, limit } = req.query
       const limitNum = limit ? parseInt(String(limit), 10) : 100
@@ -219,11 +230,70 @@ export function createAdminRouter(adapter: SorobanAdapter, walletStore?: WalletS
   })
 
   /**
+   * POST /api/admin/outbox/:id/mark-dead
+   * 
+   * Permanently mark an outbox item as dead (stops all future retries).
+   * Requires a mandatory 'reason' in the request body.
+   */
+  router.post('/outbox/:id/mark-dead', requireAdminSecret, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params
+      const { reason } = req.body
+
+      if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          'reason is required to mark an outbox item as dead',
+        )
+      }
+
+      const item = await outboxStore.getById(id)
+      if (!item) {
+        throw new AppError(ErrorCode.NOT_FOUND, 404, `Outbox item not found: ${id}`)
+      }
+
+      if (item.status === OutboxStatus.SENT) {
+        throw new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          `Cannot mark a SENT outbox item as dead (id: ${id})`,
+        )
+      }
+
+      const dead = await outboxStore.markDead(id, reason.trim())
+      if (!dead) {
+        throw new AppError(ErrorCode.INTERNAL_ERROR, 500, 'Failed to mark outbox item as dead')
+      }
+
+      logger.warn('Outbox item manually marked dead', {
+        outboxId: id,
+        reason: reason.trim(),
+        requestId: req.requestId,
+      })
+
+      res.json({
+        success: true,
+        item: {
+          id: dead.id,
+          txId: dead.txId,
+          status: dead.status,
+          lastError: dead.lastError,
+          updatedAt: dead.updatedAt.toISOString(),
+        },
+        message: 'Outbox item permanently marked as dead and will not be retried',
+      })
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  /**
    * POST /api/admin/outbox/:id/retry
    * 
    * Retry a specific outbox item
    */
-  router.post('/outbox/:id/retry', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/outbox/:id/retry', requireAdminSecret, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params
 
@@ -273,7 +343,7 @@ export function createAdminRouter(adapter: SorobanAdapter, walletStore?: WalletS
    * 
    * Retry all failed outbox items
    */
-  router.post('/outbox/retry-all', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/outbox/retry-all', requireAdminSecret, async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info('Retry all failed items requested', {
         requestId: req.requestId,

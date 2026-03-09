@@ -22,6 +22,7 @@ export interface IOutboxStore {
     status: OutboxStatus,
     options?: { error?: string; nextRetryAt?: Date | null },
   ): Promise<OutboxItem | null>
+  markDead(id: string, reason: string): Promise<OutboxItem | null>
   listByDealId(dealId: string, txType?: TxType): Promise<OutboxItem[]>
   listAll(limit?: number): Promise<OutboxItem[]>
   clear(): Promise<void>
@@ -120,6 +121,17 @@ class InMemoryOutboxStore implements IOutboxStore {
     item.processedAt = new Date()
     if (options?.error !== undefined) item.lastError = options.error
     if (options?.nextRetryAt !== undefined) item.nextRetryAt = options.nextRetryAt
+    this.items.set(id, item)
+    return item
+  }
+
+  async markDead(id: string, reason: string) {
+    const item = this.items.get(id)
+    if (!item) return null
+    item.status = OutboxStatus.DEAD
+    item.lastError = reason
+    item.nextRetryAt = null
+    item.updatedAt = new Date()
     this.items.set(id, item)
     return item
   }
@@ -232,6 +244,21 @@ export class PostgresOutboxStore implements IOutboxStore {
        WHERE id = $1
        RETURNING *`,
       [id, status, options?.error ?? null, options?.nextRetryAt ?? null],
+    )
+    return rows.length ? mapRow(rows[0]) : null
+  }
+
+  async markDead(id: string, reason: string): Promise<OutboxItem | null> {
+    const pool = await this.pool()
+    const { rows } = await pool.query(
+      `UPDATE outbox_items
+       SET status        = $2,
+           last_error    = $3,
+           next_retry_at = NULL,
+           updated_at    = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [id, OutboxStatus.DEAD, reason],
     )
     return rows.length ? mapRow(rows[0]) : null
   }

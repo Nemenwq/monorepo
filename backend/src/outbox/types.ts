@@ -7,6 +7,7 @@ export enum OutboxStatus {
   PENDING = 'pending',
   SENT = 'sent',
   FAILED = 'failed',
+  DEAD = 'dead',
 }
 
 export enum TxType {

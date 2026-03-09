@@ -91,4 +91,25 @@ export class StubSorobanAdapter implements SorobanAdapter {
                }
           }]
      }
+
+     // Admin operations (stub implementations)
+     async pause(contractId: string): Promise<string> {
+          console.log(`[Stub] pause(${contractId})`)
+          return 'stub_tx_hash_pause'
+     }
+
+     async unpause(contractId: string): Promise<string> {
+          console.log(`[Stub] unpause(${contractId})`)
+          return 'stub_tx_hash_unpause'
+     }
+
+     async setOperator(contractId: string, operatorAddress: string | null): Promise<string> {
+          console.log(`[Stub] setOperator(${contractId}, ${operatorAddress})`)
+          return 'stub_tx_hash_set_operator'
+     }
+
+     async init(contractId: string, adminAddress: string, operatorAddress?: string): Promise<string> {
+          console.log(`[Stub] init(${contractId}, ${adminAddress}, ${operatorAddress})`)
+          return 'stub_tx_hash_init'
+     }
 }
