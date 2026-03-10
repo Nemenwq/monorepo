@@ -13,6 +13,7 @@ export interface PagedReceipts { data: IndexedReceipt[]; total: number; page: nu
 export interface ReceiptRepository {
   upsertMany(receipts: IndexedReceipt[]): Promise<void>
   findByDealId(dealId: string): Promise<IndexedReceipt[]>
+  findByTxId(txId: string): Promise<IndexedReceipt | null>
   query(params: ReceiptQuery): Promise<PagedReceipts>
   getCheckpoint(): Promise<number | null>
   saveCheckpoint(ledger: number): Promise<void>
@@ -24,6 +25,7 @@ export class StubReceiptRepository implements ReceiptRepository {
 
   async upsertMany(receipts: IndexedReceipt[]) { for (const r of receipts) this.store.set(r.txId, r) }
   async findByDealId(dealId: string) { return [...this.store.values()].filter(r => r.dealId === dealId) }
+  async findByTxId(txId: string) { return this.store.get(txId) || null }
   async query({ dealId, txType, page = 1, pageSize = 20 }: ReceiptQuery): Promise<PagedReceipts> {
     let r = [...this.store.values()]
     if (dealId) r = r.filter(x => x.dealId === dealId)
@@ -99,6 +101,15 @@ export class PostgresReceiptRepository implements ReceiptRepository {
       [dealId],
     )
     return rows.map(this.mapRow)
+  }
+
+  async findByTxId(txId: string): Promise<IndexedReceipt | null> {
+    const pool = await this.pool()
+    const { rows } = await pool.query(
+      `SELECT * FROM indexed_receipts WHERE tx_id = $1 LIMIT 1`,
+      [txId],
+    )
+    return rows.length ? this.mapRow(rows[0]) : null
   }
 
   async query({ dealId, txType, page = 1, pageSize = 20 }: ReceiptQuery): Promise<PagedReceipts> {
