@@ -1,14 +1,12 @@
-/**
- * Minimal 5-field cron expression parser.
- * Format: "minute hour day-of-month month day-of-week"
- * Supports: * , - /  (ranges, lists, steps)
- *
- * Examples:
- *   "0 * * * *"     — every hour on the hour
- *   "30 9 * * 1-5"  — 09:30 on weekdays
- *   "0 0 1 * *"     — midnight on the 1st of every month
- *   "*/5 * * * *"   — every 5 minutes
- */
+// Minimal 5-field cron expression parser.
+// Format: "minute hour day-of-month month day-of-week"
+// Supports: * , - /  (ranges, lists, steps)
+//
+// Examples:
+//   "0 * * * *"    — every hour on the hour
+//   "30 9 * * 1-5" — 09:30 on weekdays
+//   "0 0 1 * *"    — midnight on the 1st of every month
+//   "0/5 * * * *"  — every 5 minutes (step from 0)
 export function getNextCronTime(cronExpression: string, from: Date = new Date()): Date {
   const fields = cronExpression.trim().split(/\s+/)
   if (fields.length !== 5) {
