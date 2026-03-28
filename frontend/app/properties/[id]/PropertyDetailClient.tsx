@@ -159,14 +159,30 @@ export default function PropertyDetailClient({
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
                   {(() => {
-                    const IconComponent =
-                      property.images[activeImageIndex].icon;
-                    return <IconComponent className="h-24 w-24 mb-4" />;
+                    const image = property.images[activeImageIndex];
+                    // Try to render image if URL exists, otherwise show placeholder
+                    return (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        {image.url ? (
+                          <img
+                            src={image.url}
+                            alt={image.label}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to placeholder if image fails to load
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground bg-muted/50">
+                          <span className="font-mono text-xl font-bold">
+                            {image.label}
+                          </span>
+                          <span className="text-sm mt-2">Click to expand</span>
+                        </div>
+                      </div>
+                    );
                   })()}
-                  <span className="font-mono text-xl font-bold">
-                    {property.images[activeImageIndex].label}
-                  </span>
-                  <span className="text-sm mt-2">Click to expand</span>
                 </div>
 
                 {property.tag && (
@@ -207,19 +223,27 @@ export default function PropertyDetailClient({
             {/* Thumbnail Grid */}
             <div className="grid grid-cols-3 gap-2 md:gap-3 lg:grid-cols-2">
               {property.images.slice(0, 6).map((image, index) => {
-                const IconComponent = image.icon;
                 return (
                   <button
                     key={image.id}
                     onClick={() => setActiveImageIndex(index)}
-                    className={`relative aspect-square border-3 border-foreground bg-muted transition-all ${
+                    className={`relative aspect-square border-3 border-foreground bg-muted transition-all overflow-hidden ${
                       activeImageIndex === index
                         ? "shadow-[4px_4px_0px_0px_rgba(255,107,53,1)] ring-2 ring-primary"
                         : "shadow-[3px_3px_0px_0px_rgba(26,26,26,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:translate-x-px hover:translate-y-px"
                     }`}
                   >
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-2">
-                      <IconComponent className="h-8 w-8 mb-1" />
+                    {image.url ? (
+                      <img
+                        src={image.url}
+                        alt={image.label}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-2 bg-muted/50">
                       <span className="text-xs font-bold text-center leading-tight">
                         {image.label}
                       </span>
@@ -346,7 +370,6 @@ export default function PropertyDetailClient({
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                   {property.images.map((image, index) => {
-                    const IconComponent = image.icon;
                     return (
                       <button
                         key={image.id}
@@ -354,10 +377,19 @@ export default function PropertyDetailClient({
                           setActiveImageIndex(index);
                           setShowLightbox(true);
                         }}
-                        className="group relative aspect-4/3 border-3 border-foreground bg-muted shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                        className="group relative aspect-4/3 border-3 border-foreground bg-muted shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] overflow-hidden"
                       >
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground group-hover:text-foreground transition-colors">
-                          <IconComponent className="h-12 w-12 mb-2" />
+                        {image.url ? (
+                          <img
+                            src={image.url}
+                            alt={image.label}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground group-hover:text-foreground transition-colors bg-muted/50">
                           <span className="font-mono font-bold">
                             {image.label}
                           </span>
@@ -555,31 +587,53 @@ export default function PropertyDetailClient({
           </button>
 
           <div className="max-w-4xl w-full">
-            <div className="relative aspect-16/10 border-3 border-background bg-muted">
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-                {(() => {
-                  const IconComponent = property.images[activeImageIndex].icon;
-                  return <IconComponent className="h-32 w-32 mb-4" />;
-                })()}
-                <span className="font-mono text-2xl font-bold">
-                  {property.images[activeImageIndex].label}
-                </span>
-              </div>
+            <div className="relative aspect-16/10 border-3 border-background bg-muted overflow-hidden">
+              {(() => {
+                const image = property.images[activeImageIndex];
+                return (
+                  <div className="w-full h-full flex items-center justify-center">
+                    {image.url ? (
+                      <img
+                        src={image.url}
+                        alt={image.label}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground bg-muted/50">
+                      <span className="font-mono text-2xl font-bold">
+                        {image.label}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="mt-4 flex justify-center gap-2">
               {property.images.map((image, index) => {
-                const IconComponent = image.icon;
                 return (
                   <button
                     key={image.id}
                     onClick={() => setActiveImageIndex(index)}
-                    className={`h-16 w-16 border-2 flex items-center justify-center ${
+                    className={`h-16 w-16 border-2 flex items-center justify-center overflow-hidden ${
                       activeImageIndex === index
                         ? "border-primary bg-primary/20"
                         : "border-background/50 bg-background/10"
                     }`}
                   >
-                    <IconComponent className="h-6 w-6 text-background" />
+                    {image.url ? (
+                      <img
+                        src={image.url}
+                        alt={image.label}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <span className="text-xs font-bold text-background">{image.label.charAt(0)}</span>
                   </button>
                 );
               })}

@@ -1,14 +1,6 @@
-import {
-  Sofa,
-  BedDouble,
-  CookingPot,
-  ShowerHead,
-  Bed,
-  TreePine,
-  Tv,
-  Waves,
-} from "lucide-react";
-
+// Sample property images - in production, these would be real image URLs
+// For demo purposes, we use placeholder paths that can be replaced with actual images
+// Expected image structure: /properties/[property-id]/[image-name].jpg
 export const allProperties = [
   {
     id: 1,
@@ -19,7 +11,7 @@ export const allProperties = [
     beds: 3,
     baths: 3,
     sqm: 150,
-    image: "/properties/lekki-flat.jpg",
+    image: "/properties/1/exterior.jpg",
     tag: "POPULAR",
     tagColor: "bg-primary",
     description:
@@ -35,12 +27,12 @@ export const allProperties = [
       "Fiber Internet Ready",
     ],
     images: [
-      { id: 1, label: "Living Room", icon: Sofa },
-      { id: 2, label: "Master Bedroom", icon: BedDouble },
-      { id: 3, label: "Kitchen", icon: CookingPot },
-      { id: 4, label: "Bathroom", icon: ShowerHead },
-      { id: 5, label: "Second Bedroom", icon: Bed },
-      { id: 6, label: "Balcony View", icon: TreePine },
+      { id: 1, label: "Living Room", url: "/properties/1/living-room.jpg" },
+      { id: 2, label: "Master Bedroom", url: "/properties/1/master-bedroom.jpg" },
+      { id: 3, label: "Kitchen", url: "/properties/1/kitchen.jpg" },
+      { id: 4, label: "Bathroom", url: "/properties/1/bathroom.jpg" },
+      { id: 5, label: "Second Bedroom", url: "/properties/1/second-bedroom.jpg" },
+      { id: 6, label: "Balcony View", url: "/properties/1/balcony.jpg" },
     ],
     landlord: {
       name: "Estate Pro Management",
@@ -64,7 +56,7 @@ export const allProperties = [
     beds: 2,
     baths: 2,
     sqm: 120,
-    image: "/properties/wuse-apt.jpg",
+    image: "/properties/2/exterior.jpg",
     tag: "NEW",
     tagColor: "bg-secondary",
     description:
@@ -78,11 +70,11 @@ export const allProperties = [
       "Balcony",
     ],
     images: [
-      { id: 1, label: "Living Room", icon: Sofa },
-      { id: 2, label: "Master Bedroom", icon: BedDouble },
-      { id: 3, label: "Kitchen", icon: CookingPot },
-      { id: 4, label: "Bathroom", icon: ShowerHead },
-      { id: 5, label: "Guest Bedroom", icon: Bed },
+      { id: 1, label: "Living Room", url: "/properties/2/living-room.jpg" },
+      { id: 2, label: "Master Bedroom", url: "/properties/2/master-bedroom.jpg" },
+      { id: 3, label: "Kitchen", url: "/properties/2/kitchen.jpg" },
+      { id: 4, label: "Bathroom", url: "/properties/2/bathroom.jpg" },
+      { id: 5, label: "Guest Bedroom", url: "/properties/2/guest-bedroom.jpg" },
     ],
     landlord: {
       name: "Quality Homes Ltd",
@@ -106,7 +98,7 @@ export const allProperties = [
     beds: 4,
     baths: 4,
     sqm: 300,
-    image: "/properties/ikoyi-duplex.jpg",
+    image: "/properties/3/exterior.jpg",
     tag: "PREMIUM",
     tagColor: "bg-accent",
     description:
@@ -122,14 +114,14 @@ export const allProperties = [
       "Elevator",
     ],
     images: [
-      { id: 1, label: "Grand Living Room", icon: Sofa },
-      { id: 2, label: "Master Suite", icon: BedDouble },
-      { id: 3, label: "Gourmet Kitchen", icon: CookingPot },
-      { id: 4, label: "Spa Bathroom", icon: ShowerHead },
-      { id: 5, label: "Second Bedroom", icon: Bed },
-      { id: 6, label: "Third Bedroom", icon: Bed },
-      { id: 7, label: "Home Office", icon: Tv },
-      { id: 8, label: "Pool Area", icon: Waves },
+      { id: 1, label: "Grand Living Room", url: "/properties/3/living-room.jpg" },
+      { id: 2, label: "Master Suite", url: "/properties/3/master-bedroom.jpg" },
+      { id: 3, label: "Gourmet Kitchen", url: "/properties/3/kitchen.jpg" },
+      { id: 4, label: "Spa Bathroom", url: "/properties/3/bathroom.jpg" },
+      { id: 5, label: "Second Bedroom", url: "/properties/3/second-bedroom.jpg" },
+      { id: 6, label: "Third Bedroom", url: "/properties/3/third-bedroom.jpg" },
+      { id: 7, label: "Home Office", url: "/properties/3/office.jpg" },
+      { id: 8, label: "Pool Area", url: "/properties/3/pool.jpg" },
     ],
     landlord: {
       name: "Urban Living Spaces",
@@ -153,7 +145,7 @@ export const allProperties = [
     beds: 1,
     baths: 1,
     sqm: 45,
-    image: "/properties/yaba-studio.jpg",
+    image: "/properties/4/exterior.jpg",
     tag: null,
     tagColor: null,
     description:
@@ -166,10 +158,10 @@ export const allProperties = [
       "Security Gate",
     ],
     images: [
-      { id: 1, label: "Studio Space", icon: Sofa },
-      { id: 2, label: "Bedroom Area", icon: BedDouble },
-      { id: 3, label: "Kitchenette", icon: CookingPot },
-      { id: 4, label: "Bathroom", icon: ShowerHead },
+      { id: 1, label: "Studio Space", url: "/properties/4/studio.jpg" },
+      { id: 2, label: "Bedroom Area", url: "/properties/4/bedroom.jpg" },
+      { id: 3, label: "Kitchenette", url: "/properties/4/kitchen.jpg" },
+      { id: 4, label: "Bathroom", url: "/properties/4/bathroom.jpg" },
     ],
     landlord: {
       name: "Yaba Properties",
@@ -193,7 +185,7 @@ export const allProperties = [
     beds: 3,
     baths: 3,
     sqm: 180,
-    image: "/properties/vi-flat.jpg",
+    image: "/properties/5/exterior.jpg",
     tag: "HOT",
     tagColor: "bg-destructive",
     description:
@@ -207,12 +199,12 @@ export const allProperties = [
       "24/7 Power",
     ],
     images: [
-      { id: 1, label: "Living Room", icon: Sofa },
-      { id: 2, label: "Master Bedroom", icon: BedDouble },
-      { id: 3, label: "Kitchen", icon: CookingPot },
-      { id: 4, label: "En-suite Bath", icon: ShowerHead },
-      { id: 5, label: "Second Bedroom", icon: Bed },
-      { id: 6, label: "City View", icon: TreePine },
+      { id: 1, label: "Living Room", url: "/properties/5/living-room.jpg" },
+      { id: 2, label: "Master Bedroom", url: "/properties/5/master-bedroom.jpg" },
+      { id: 3, label: "Kitchen", url: "/properties/5/kitchen.jpg" },
+      { id: 4, label: "En-suite Bath", url: "/properties/5/bathroom.jpg" },
+      { id: 5, label: "Second Bedroom", url: "/properties/5/second-bedroom.jpg" },
+      { id: 6, label: "City View", url: "/properties/5/view.jpg" },
     ],
     landlord: {
       name: "Luxury Estates Nigeria",
@@ -236,7 +228,7 @@ export const allProperties = [
     beds: 4,
     baths: 3,
     sqm: 220,
-    image: "/properties/gwarimpa-bungalow.jpg",
+    image: "/properties/6/exterior.jpg",
     tag: null,
     tagColor: null,
     description:
@@ -250,12 +242,12 @@ export const allProperties = [
       "Prepaid Meter",
     ],
     images: [
-      { id: 1, label: "Living Room", icon: Sofa },
-      { id: 2, label: "Master Bedroom", icon: BedDouble },
-      { id: 3, label: "Kitchen", icon: CookingPot },
-      { id: 4, label: "Family Bath", icon: ShowerHead },
-      { id: 5, label: "Kids Room", icon: Bed },
-      { id: 6, label: "Backyard", icon: TreePine },
+      { id: 1, label: "Living Room", url: "/properties/6/living-room.jpg" },
+      { id: 2, label: "Master Bedroom", url: "/properties/6/master-bedroom.jpg" },
+      { id: 3, label: "Kitchen", url: "/properties/6/kitchen.jpg" },
+      { id: 4, label: "Family Bath", url: "/properties/6/bathroom.jpg" },
+      { id: 5, label: "Kids Room", url: "/properties/6/kids-room.jpg" },
+      { id: 6, label: "Backyard", url: "/properties/6/backyard.jpg" },
     ],
     landlord: {
       name: "Gwarimpa Realtors",
@@ -279,7 +271,7 @@ export const allProperties = [
     beds: 2,
     baths: 2,
     sqm: 100,
-    image: "/properties/ikeja-flat.jpg",
+    image: "/properties/7/exterior.jpg",
     tag: "NEW",
     tagColor: "bg-secondary",
     description:
@@ -292,11 +284,11 @@ export const allProperties = [
       "Parking Space",
     ],
     images: [
-      { id: 1, label: "Living Room", icon: Sofa },
-      { id: 2, label: "Master Bedroom", icon: BedDouble },
-      { id: 3, label: "Kitchen", icon: CookingPot },
-      { id: 4, label: "Bathroom", icon: ShowerHead },
-      { id: 5, label: "Guest Bedroom", icon: Bed },
+      { id: 1, label: "Living Room", url: "/properties/7/living-room.jpg" },
+      { id: 2, label: "Master Bedroom", url: "/properties/7/master-bedroom.jpg" },
+      { id: 3, label: "Kitchen", url: "/properties/7/kitchen.jpg" },
+      { id: 4, label: "Bathroom", url: "/properties/7/bathroom.jpg" },
+      { id: 5, label: "Guest Bedroom", url: "/properties/7/guest-bedroom.jpg" },
     ],
     landlord: {
       name: "Metropolitan Properties",
@@ -320,7 +312,7 @@ export const allProperties = [
     beds: 5,
     baths: 5,
     sqm: 400,
-    image: "/properties/banana-penthouse.jpg",
+    image: "/properties/8/exterior.jpg",
     tag: "LUXURY",
     tagColor: "bg-accent",
     description:
@@ -336,14 +328,14 @@ export const allProperties = [
       "Yacht Club Membership",
     ],
     images: [
-      { id: 1, label: "Grand Salon", icon: Sofa },
-      { id: 2, label: "Master Suite", icon: BedDouble },
-      { id: 3, label: "Chef Kitchen", icon: CookingPot },
-      { id: 4, label: "Spa Bathroom", icon: ShowerHead },
-      { id: 5, label: "Second Suite", icon: Bed },
-      { id: 6, label: "Private Cinema", icon: Tv },
-      { id: 7, label: "Infinity Pool", icon: Waves },
-      { id: 8, label: "Lagoon View", icon: TreePine },
+      { id: 1, label: "Grand Salon", url: "/properties/8/living-room.jpg" },
+      { id: 2, label: "Master Suite", url: "/properties/8/master-bedroom.jpg" },
+      { id: 3, label: "Chef Kitchen", url: "/properties/8/kitchen.jpg" },
+      { id: 4, label: "Spa Bathroom", url: "/properties/8/bathroom.jpg" },
+      { id: 5, label: "Second Suite", url: "/properties/8/second-bedroom.jpg" },
+      { id: 6, label: "Private Cinema", url: "/properties/8/cinema.jpg" },
+      { id: 7, label: "Infinity Pool", url: "/properties/8/pool.jpg" },
+      { id: 8, label: "Lagoon View", url: "/properties/8/view.jpg" },
     ],
     landlord: {
       name: "Elite Residences",
