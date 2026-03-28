@@ -1,5 +1,4 @@
 import type { BackendErrorResponse } from './errors'
-import { csrfProtection } from './csrf-protection'
 
 const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -85,9 +84,11 @@ export async function apiFetch<T>(
     ...(options?.headers ?? {}),
   };
 
-  // Attach CSRF token for state-mutating requests
+  // Attach CSRF token for state-mutating requests (browser only)
   const method = (options?.method ?? "GET").toUpperCase();
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+  if (typeof window !== "undefined" && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    // Lazy-import to avoid SSR module initialization issues
+    const { csrfProtection } = await import('./csrf-protection');
     const csrfToken = csrfProtection.getCurrentToken() ?? csrfProtection.initialize();
     (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
   }

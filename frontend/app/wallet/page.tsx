@@ -1,5 +1,8 @@
 "use client";
 
+// Opt out of static prerendering — this page fetches live wallet data
+export const dynamic = "force-dynamic";
+
 import { useCallback, useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
