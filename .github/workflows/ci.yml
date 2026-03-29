@@ -10,7 +10,7 @@ on:
 
 jobs:
   frontend:
-    name: Frontend (lint, build)
+    name: Frontend (lint, unit, build, e2e)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,8 +32,17 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Unit tests
+        run: pnpm run test:unit
+
       - name: Build
         run: pnpm run build
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: pnpm run test:e2e
 
   backend:
     name: Backend (lint, test)
