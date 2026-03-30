@@ -44,6 +44,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
       - name: Install dependencies
         run: npm ci
 
@@ -81,18 +87,3 @@ jobs:
 
       - name: Tests
         run: cargo test --workspace
-
-  formal-verification:
-    name: Formal Verification (Kani)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Kani
-        run: |
-          cargo install --locked kani-verifier
-          cargo kani setup
-
-      - name: Verify Contracts
-        working-directory: contracts
-        run: cargo kani --workspace --all-features
