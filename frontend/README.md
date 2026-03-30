@@ -4,6 +4,9 @@ Next.js web app for Shelterflex.
 
 ## Setup
 
+> **Package manager:** This project uses **npm**. Use `npm install` (not `pnpm` or `yarn`) to match
+> the `package-lock.json` lockfile that is committed to the repository.
+
 ```bash
 npm install
 npm run dev
