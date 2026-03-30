@@ -11,7 +11,6 @@ import {
   Square,
   ArrowLeft,
   Share2,
-  Check,
   Wifi,
   Car,
   Shield,
@@ -531,11 +530,21 @@ export default function PropertyDetailClient({
                     </div>
                     <div>
                       <p className="font-bold">{property.landlord.name}</p>
-                      {property.landlord.verified && (
-                        <span className="inline-flex items-center gap-1 text-xs text-secondary">
-                          <Check className="h-3 w-3" /> Verified Partner
-                        </span>
-                      )}
+                      <span
+                        className={`mt-1 inline-flex items-center gap-1 border px-2 py-0.5 text-xs font-bold ${
+                          property.landlord.verified
+                            ? "border-secondary bg-secondary/15 text-secondary"
+                            : "border-muted-foreground/40 bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {property.landlord.verified ? (
+                          <>
+                            <CheckCircle className="h-3 w-3" /> Verified Landlord
+                          </>
+                        ) : (
+                          "Verification pending"
+                        )}
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
@@ -556,12 +565,14 @@ export default function PropertyDetailClient({
                       </span>
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="w-full mt-4 border-3 border-foreground bg-transparent py-5 font-bold shadow-[3px_3px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                  >
-                    Contact Landlord
-                  </Button>
+                  <Link href={`/messages?contact=landlord&propertyId=${property.id}`}>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4 border-3 border-foreground bg-transparent py-5 font-bold shadow-[3px_3px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                    >
+                      <MessageSquare className="mr-2 h-5 w-5" /> Contact Landlord
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
