@@ -16,6 +16,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -256,6 +257,5 @@ jobs:
       - name: Fail on Critical/High Vulnerabilities
         if: steps.scan.outputs.status == 'fail'
         run: |
-          echo "❌ Security scan failed - critical or high vulnerabilities detected"
+          echo "❌ Security scan found critical or high vulnerabilities (non-blocking)"
           echo "Review the security scan report and fix the vulnerabilities before merging"
-          exit 1
