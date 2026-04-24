@@ -124,7 +124,7 @@ paths:
                 properties:
                   token:
                     type: string
-                    description: Session token to be used as Authorization: Bearer <token>
+                    description: "Session token to be used as Authorization: Bearer <token>"
                   user:
                     $ref: "#/components/schemas/User"
         default:
@@ -1273,71 +1273,6 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/staking/quote:
-    post:
-      summary: Create NGN→USDC staking quote
-      description: Returns a priced conversion from NGN to USDC including fees and expiry.
-      operationId: createStakingQuote
-      tags:
-        - Staking
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - amountNgn
-                - paymentRail
-              properties:
-                amountNgn:
-                  type: number
-                  minimum: 1
-                paymentRail:
-                  type: string
-                  enum: [paystack, flutterwave, bank_transfer, manual_admin]
-      responses:
-        '201':
-          description: Quote created
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - quoteId
-                  - amountNgn
-                  - estimatedAmountUsdc
-                  - fxRateNgnPerUsdc
-                  - feesNgn
-                  - expiresAt
-                properties:
-                  quoteId:
-                    type: string
-                    format: uuid
-                  amountNgn:
-                    type: number
-                  estimatedAmountUsdc:
-                    type: string
-                    description: USDC amount with up to 6 decimals
-                  fxRateNgnPerUsdc:
-                    type: number
-                  feesNgn:
-                    type: number
-                  expiresAt:
-                    type: string
-                    format: date-time
-                  disclaimer:
-                    type: string
-                    example: Final USDC may differ slightly due to FX movements
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
   /api/admin/rewards/{rewardId}/mark-paid:
     post:
       summary: Mark reward as paid
@@ -1593,7 +1528,7 @@ paths:
               example:
                 error:
                   code: CONFLICT
-                  message: Listing cannot be approved. Current status: approved
+                  message: "Listing cannot be approved. Current status: approved"
                   details:
                     currentStatus: approved
                     allowedFrom: pending_review
@@ -1677,7 +1612,7 @@ paths:
               example:
                 error:
                   code: CONFLICT
-                  message: Listing cannot be rejected. Current status: rejected
+                  message: "Listing cannot be rejected. Current status: rejected"
                   details:
                     currentStatus: rejected
                     allowedFrom: pending_review
@@ -1877,6 +1812,8 @@ paths:
       operationId: getStakingQuote
       tags:
         - Staking
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -3269,6 +3206,32 @@ components:
             error:
               code: "TOO_MANY_REQUESTS"
               message: "Rate limit exceeded"
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Request validation failed"
+              details:
+                fieldErrors:
+                  - field: "email"
+                    message: "Invalid email address"
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Authentication required"
 
   securitySchemes:
     bearerAuth:

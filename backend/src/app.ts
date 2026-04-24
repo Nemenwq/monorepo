@@ -66,6 +66,8 @@ import { createAdminJobsRouter } from "./routes/adminJobs.js"
 
 import { sanitizeRequest, detectMaliciousPatterns } from "./middleware/sanitization.js"
 import { createComprehensiveRateLimiter } from "./middleware/comprehensiveRateLimit.js"
+import { createDocsRouter } from "./routes/docs.js"
+
 export function createApp() {
   const app = express()
 
@@ -319,7 +321,8 @@ export function createApp() {
   app.use('/api/gas-metrics', createGasMetricsRouter())
   app.use('/api', migrationGuideRouter)
 
-
+  // Interactive API documentation
+  app.use('/docs', createDocsRouter())
 
   // 404 catch-all — must be after all routes, before errorHandler
   app.use('*', (_req, _res, next) => {
