@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Home,
   Building2,
@@ -16,35 +16,160 @@ import {
   Wallet,
   Plus,
   Receipt,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { DashboardHeader } from "@/components/dashboard-header"
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DashboardHeader } from "@/components/dashboard-header";
 import {
-  tenantPastPayments as pastPayments,
-  tenantPaymentSchedule as paymentSchedule,
-  tenantWalletData as walletData,
-} from "@/lib/mockData"
-
-// Wallet balance - checked first before auto-deduction
-// (mock data lives in lib/mockData)
+  getPaymentSchedule,
+  getPaymentHistory,
+  getWalletBalance,
+  initiateQuickPay,
+  initiateWalletTopUp,
+  type PaymentScheduleItem,
+  type PaymentHistoryItem,
+} from "@/lib/tenantApi";
+import { showErrorToast, showSuccessToast } from "@/lib/toast";
 
 export default function TenantPaymentsPage() {
-  const [activeTab, setActiveTab] = useState<"upcoming" | "history" | "wallet">("upcoming")
-  const [topUpAmount, setTopUpAmount] = useState("")
-  const [walletBalance, setWalletBalance] = useState(walletData.balance)
+  const [activeTab, setActiveTab] = useState<"upcoming" | "history" | "wallet">(
+    "upcoming",
+  );
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleItem[]>(
+    [],
+  );
+  const [pastPayments, setPastPayments] = useState<PaymentHistoryItem[]>([]);
+  const [nextPayment, setNextPayment] = useState<PaymentScheduleItem | null>(
+    null,
+  );
+  const [dealId, setDealId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastTopUp, setLastTopUp] = useState("");
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-NG", {
       style: "currency",
       currency: "NGN",
       minimumFractionDigits: 0,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
-  const nextPayment = paymentSchedule.find((p) => p.status === "upcoming")
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [scheduleRes, historyRes, walletRes] = await Promise.all([
+        getPaymentSchedule(),
+        getPaymentHistory({ limit: 20 }),
+        getWalletBalance(),
+      ]);
+
+      if (scheduleRes.success) {
+        setPaymentSchedule(scheduleRes.data.schedule);
+        setNextPayment(scheduleRes.data.nextPayment);
+        setDealId(scheduleRes.data.dealId || null);
+      }
+
+      if (historyRes.success) {
+        setPastPayments(historyRes.data.payments);
+      }
+
+      if (walletRes.success) {
+        setWalletBalance(walletRes.data.balance);
+        setLastTopUp(
+          new Date(walletRes.data.lastTopUp).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+        );
+      }
+    } catch (error: any) {
+      showErrorToast(error?.message || "Failed to load payment data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuickPay = async (method: "wallet" | "card") => {
+    if (!dealId || !nextPayment) {
+      showErrorToast("No active payment found");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await initiateQuickPay({
+        dealId,
+        amount: nextPayment.amount,
+        paymentMethod: method,
+      });
+
+      if (response.success) {
+        if (response.data.redirectUrl) {
+          window.location.href = response.data.redirectUrl;
+        } else {
+          showSuccessToast(response.data.message);
+          await loadData(); // Reload data
+        }
+      }
+    } catch (error: any) {
+      showErrorToast(error?.message || "Payment failed");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTopUp = async () => {
+    const amount = parseFloat(topUpAmount);
+    if (isNaN(amount) || amount < 1000) {
+      showErrorToast("Please enter a valid amount (minimum ₦1,000)");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await initiateWalletTopUp({
+        amount,
+        paymentMethod: "card",
+      });
+
+      if (response.success) {
+        if (response.data.redirectUrl) {
+          window.location.href = response.data.redirectUrl;
+        } else {
+          showSuccessToast("Top-up initiated successfully");
+          setTopUpAmount("");
+          await loadData();
+        }
+      }
+    } catch (error: any) {
+      showErrorToast(error?.message || "Top-up failed");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader />
+        <main className="ml-64 min-h-screen pt-20 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,8 +180,7 @@ export default function TenantPaymentsPage() {
         <div className="flex h-full flex-col px-4 py-6">
           <div className="mb-8 border-3 border-foreground bg-secondary p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
             <p className="text-sm font-medium text-foreground">Logged in as</p>
-            <p className="text-lg font-bold text-foreground">Ngozi Adekunle</p>
-            <p className="text-sm text-muted-foreground">Tenant</p>
+            <p className="text-lg font-bold text-foreground">Tenant</p>
           </div>
 
           <nav className="flex-1 space-y-2">
@@ -94,9 +218,6 @@ export default function TenantPaymentsPage() {
             >
               <MessageSquare className="h-5 w-5" />
               Messages
-              <span className="ml-auto flex h-6 w-6 items-center justify-center border-2 border-foreground bg-destructive text-xs font-bold text-destructive-foreground">
-                2
-              </span>
             </Link>
             <Link
               href="/dashboard/tenant/settings"
@@ -115,7 +236,9 @@ export default function TenantPaymentsPage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground">Payments</h1>
-            <p className="mt-1 text-muted-foreground">Manage your rent payments and wallet</p>
+            <p className="mt-1 text-muted-foreground">
+              Manage your rent payments and wallet
+            </p>
           </div>
 
           {/* Quick Stats */}
@@ -126,8 +249,12 @@ export default function TenantPaymentsPage() {
                   <Wallet className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Wallet Balance</p>
-                  <p className="text-xl font-bold">{formatCurrency(walletBalance)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Wallet Balance
+                  </p>
+                  <p className="text-xl font-bold">
+                    {formatCurrency(walletBalance)}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -138,7 +265,9 @@ export default function TenantPaymentsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Next Payment</p>
-                  <p className="text-xl font-bold">{nextPayment ? formatCurrency(nextPayment.amount) : "N/A"}</p>
+                  <p className="text-xl font-bold">
+                    {nextPayment ? formatCurrency(nextPayment.amount) : "N/A"}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -149,7 +278,9 @@ export default function TenantPaymentsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Due Date</p>
-                  <p className="text-xl font-bold">{nextPayment ? nextPayment.dueDate : "N/A"}</p>
+                  <p className="text-xl font-bold">
+                    {nextPayment ? nextPayment.dueDate : "N/A"}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -182,42 +313,68 @@ export default function TenantPaymentsPage() {
               <div className="lg:col-span-2">
                 <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
                   <h3 className="mb-6 text-lg font-bold">Payment Schedule</h3>
-                  <div className="space-y-3">
-                    {paymentSchedule.map((payment) => (
-                      <div
-                        key={`${payment.month}-${payment.dueDate}-${payment.amount}`}
-                        className={`flex items-center justify-between border-3 border-foreground p-4 ${
-                          payment.status === "upcoming" ? "bg-primary/10" : "bg-card"
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center border-2 border-foreground ${
-                              payment.status === "upcoming" ? "bg-primary" : "bg-muted"
-                            }`}
-                          >
-                            {payment.status === "upcoming" ? (
-                              <AlertCircle className="h-5 w-5" />
-                            ) : (
-                              <Clock className="h-5 w-5" />
+                  {paymentSchedule.length === 0 ? (
+                    <div className="flex flex-col items-center py-12 text-center">
+                      <Calendar className="h-16 w-16 text-muted-foreground" />
+                      <h3 className="mt-4 font-bold">No upcoming payments</h3>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        You don't have any active payment schedules.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {paymentSchedule.map((payment, index) => (
+                        <div
+                          key={`${payment.month}-${index}`}
+                          className={`flex items-center justify-between border-3 border-foreground p-4 ${
+                            payment.status === "upcoming"
+                              ? "bg-primary/10"
+                              : "bg-card"
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`flex h-10 w-10 items-center justify-center border-2 border-foreground ${
+                                payment.status === "upcoming"
+                                  ? "bg-primary"
+                                  : "bg-muted"
+                              }`}
+                            >
+                              {payment.status === "upcoming" ? (
+                                <AlertCircle className="h-5 w-5" />
+                              ) : (
+                                <Clock className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold">{payment.month}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Due {payment.dueDate}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="font-mono font-bold">
+                              {formatCurrency(payment.amount)}
+                            </span>
+                            {payment.status === "upcoming" && (
+                              <Button
+                                onClick={() => handleQuickPay("wallet")}
+                                disabled={isProcessing}
+                                className="border-2 border-foreground bg-primary font-bold shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
+                              >
+                                {isProcessing ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Pay Now"
+                                )}
+                              </Button>
                             )}
                           </div>
-                          <div>
-                            <p className="font-bold">{payment.month}</p>
-                            <p className="text-sm text-muted-foreground">Due {payment.dueDate}</p>
-                          </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono font-bold">{formatCurrency(payment.amount)}</span>
-                          {payment.status === "upcoming" && (
-                            <Button className="border-2 border-foreground bg-primary font-bold shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
-                              Pay Now
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               </div>
 
@@ -229,21 +386,33 @@ export default function TenantPaymentsPage() {
                 </p>
 
                 <div className="mb-4 border-3 border-foreground bg-muted/50 p-4">
-                  <p className="text-sm text-muted-foreground">Wallet Balance</p>
-                  <p className="text-2xl font-bold">{formatCurrency(walletBalance)}</p>
-                  {walletBalance >= (nextPayment?.amount || 0) && (
-                    <p className="mt-1 text-sm text-secondary">Sufficient for next payment</p>
+                  <p className="text-sm text-muted-foreground">
+                    Wallet Balance
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(walletBalance)}
+                  </p>
+                  {nextPayment && walletBalance >= nextPayment.amount && (
+                    <p className="mt-1 text-sm text-secondary">
+                      Sufficient for next payment
+                    </p>
                   )}
                 </div>
 
-                <Button className="mb-4 w-full border-3 border-foreground bg-primary font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
+                <Button
+                  onClick={() => handleQuickPay("wallet")}
+                  disabled={isProcessing || !nextPayment}
+                  className="mb-4 w-full border-3 border-foreground bg-primary font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
+                >
                   <Wallet className="mr-2 h-4 w-4" />
-                  Pay from Wallet
+                  {isProcessing ? "Processing..." : "Pay from Wallet"}
                 </Button>
 
                 <Button
+                  onClick={() => handleQuickPay("card")}
+                  disabled={isProcessing || !nextPayment}
                   variant="outline"
-                  className="w-full border-3 border-foreground bg-transparent font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                  className="w-full border-3 border-foreground bg-transparent font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
                   Pay with Card
@@ -251,7 +420,8 @@ export default function TenantPaymentsPage() {
 
                 <div className="mt-6 border-t-2 border-foreground pt-4">
                   <p className="text-xs text-muted-foreground">
-                    Payments from your wallet are processed instantly. Card payments may take 1-2 business days.
+                    Payments from your wallet are processed instantly. Card
+                    payments may take 1-2 business days.
                   </p>
                 </div>
               </Card>
@@ -273,28 +443,34 @@ export default function TenantPaymentsPage() {
                       Your completed payments will appear here.
                     </p>
                   </div>
-                ) : pastPayments.map((payment) => (
-                  <div
-                    key={`${payment.month}-${payment.paidDate}-${payment.amount}`}
-                    className="flex items-center justify-between border-b-2 border-foreground/10 pb-3 last:border-0"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center border-2 border-foreground bg-secondary">
-                        <CheckCircle className="h-5 w-5" />
+                ) : (
+                  pastPayments.map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="flex items-center justify-between border-b-2 border-foreground/10 pb-3 last:border-0"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center border-2 border-foreground bg-secondary">
+                          <CheckCircle className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold">{payment.month}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Paid on {payment.paidDate} via {payment.method}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold">{payment.month}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Paid on {payment.paidDate} via {payment.method}
+                      <div className="text-right">
+                        <p className="font-mono font-bold">
+                          {formatCurrency(payment.amount)}
                         </p>
+                        <span className="border-2 border-foreground bg-secondary px-2 py-0.5 text-xs font-bold">
+                          Paid
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono font-bold">{formatCurrency(payment.amount)}</p>
-                      <span className="border-2 border-foreground bg-secondary px-2 py-0.5 text-xs font-bold">Paid</span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
           )}
@@ -305,20 +481,29 @@ export default function TenantPaymentsPage() {
               <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
                 <h3 className="mb-4 text-lg font-bold">Your Wallet</h3>
                 <div className="mb-6 border-3 border-foreground bg-primary/10 p-6">
-                  <p className="text-sm text-muted-foreground">Wallet Balance</p>
-                  <p className="text-4xl font-bold">{formatCurrency(walletBalance)}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">Last top-up: {walletData.lastTopUp}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Wallet Balance
+                  </p>
+                  <p className="text-4xl font-bold">
+                    {formatCurrency(walletBalance)}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Last top-up: {lastTopUp}
+                  </p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="top-up-amount" className="font-bold">Top Up Amount</Label>
+                    <Label htmlFor="top-up-amount" className="font-bold">
+                      Top Up Amount
+                    </Label>
                     <Input
                       id="top-up-amount"
                       type="number"
                       value={topUpAmount}
                       onChange={(e) => setTopUpAmount(e.target.value)}
                       placeholder="Enter amount"
+                      disabled={isProcessing}
                       className="border-3 border-foreground bg-background py-5 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
                     />
                   </div>
@@ -327,15 +512,24 @@ export default function TenantPaymentsPage() {
                       <button
                         key={amount}
                         onClick={() => setTopUpAmount(amount.toString())}
-                        className="border-2 border-foreground bg-muted p-2 text-sm font-bold transition-all hover:bg-muted/80"
+                        disabled={isProcessing}
+                        className="border-2 border-foreground bg-muted p-2 text-sm font-bold transition-all hover:bg-muted/80 disabled:opacity-50"
                       >
                         {formatCurrency(amount)}
                       </button>
                     ))}
                   </div>
-                  <Button className="w-full border-3 border-foreground bg-primary font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Top Up Wallet
+                  <Button
+                    onClick={handleTopUp}
+                    disabled={isProcessing}
+                    className="w-full border-3 border-foreground bg-primary font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="mr-2 h-4 w-4" />
+                    )}
+                    {isProcessing ? "Processing..." : "Top Up Wallet"}
                   </Button>
                 </div>
               </Card>
@@ -350,7 +544,8 @@ export default function TenantPaymentsPage() {
                     <div>
                       <p className="font-bold">Top up your wallet</p>
                       <p className="text-sm text-muted-foreground">
-                        Add funds anytime between payments to build up your balance
+                        Add funds anytime between payments to build up your
+                        balance
                       </p>
                     </div>
                   </div>
@@ -372,7 +567,8 @@ export default function TenantPaymentsPage() {
                     <div>
                       <p className="font-bold">Auto-debit covers the rest</p>
                       <p className="text-sm text-muted-foreground">
-                        If wallet is insufficient, the remainder is charged to your linked account
+                        If wallet is insufficient, the remainder is charged to
+                        your linked account
                       </p>
                     </div>
                   </div>
@@ -383,7 +579,8 @@ export default function TenantPaymentsPage() {
                     <div>
                       <p className="font-bold">Pay ahead anytime</p>
                       <p className="text-sm text-muted-foreground">
-                        Make manual payments towards future installments whenever you want
+                        Make manual payments towards future installments
+                        whenever you want
                       </p>
                     </div>
                   </div>
@@ -393,7 +590,9 @@ export default function TenantPaymentsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-bold">Auto-pay Enabled</p>
-                      <p className="text-sm text-muted-foreground">Payments are automatically deducted</p>
+                      <p className="text-sm text-muted-foreground">
+                        Payments are automatically deducted
+                      </p>
                     </div>
                     <div className="flex h-6 w-12 items-center rounded-none border-2 border-foreground bg-secondary p-0.5">
                       <div className="ml-auto h-4 w-4 border border-foreground bg-foreground" />
@@ -406,5 +605,5 @@ export default function TenantPaymentsPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }
