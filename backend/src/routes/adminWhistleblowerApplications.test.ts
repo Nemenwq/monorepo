@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import express from 'express'
 import supertest from 'supertest'
@@ -9,6 +8,7 @@ import { createWhistleblowerApplicationsRouter } from './whistleblowerApplicatio
 import { createAdminWhistleblowerApplicationsRouter } from './adminWhistleblowerApplications.js'
 
 describe('Admin whistleblower applications API', () => {
+  let uuidSequence = 0
   const app = express()
   app.use(express.json())
   app.use(requestIdMiddleware)
@@ -17,7 +17,13 @@ describe('Admin whistleblower applications API', () => {
   app.use(errorHandler)
   const request = supertest(app)
 
+  function createTestUuid() {
+    uuidSequence += 1
+    return `00000000-0000-4000-8000-${uuidSequence.toString().padStart(12, '0')}`
+  }
+
   beforeEach(async () => {
+    uuidSequence = 0
     await whistleblowerApplicationStore.clear()
   })
 
@@ -26,7 +32,7 @@ describe('Admin whistleblower applications API', () => {
       .post('/api/whistleblower-applications')
       .send({
         fullName: 'Test Applicant',
-        email: `applicant-${randomUUID()}@example.com`,
+        email: `applicant-${createTestUuid()}@example.com`,
         phone: '+2348123456789',
         address: '123 Test Street, Lagos',
         linkedinProfile: 'https://linkedin.com/in/test-applicant',
@@ -165,7 +171,7 @@ describe('Admin whistleblower applications API', () => {
   })
 
   it('returns not found for unknown application ids on detail and moderation routes', async () => {
-    const missingId = randomUUID()
+    const missingId = createTestUuid()
 
     const detailResponse = await request
       .get(`/api/admin/whistleblower-applications/${missingId}`)
