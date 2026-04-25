@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo, Suspense } from "react";
+import { useCallback, useEffect, useState, useMemo, Suspense, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   AlertCircle,
@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { handleError, showSuccessToast } from "@/lib/toast";
 import { generateLedgerCsv, downloadCsv } from "@/lib/csvExport";
-import { featureFlags } from "@/lib/featureFlags";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -179,9 +178,12 @@ function WalletPageContent() {
   const [reloadNonce, setReloadNonce] = useState(0);
 
   const { isFrozen, freezeReason } = useRiskState();
-          const [isExporting, setIsExporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const deficit =
     balanceState.type === "success"
@@ -193,6 +195,32 @@ function WalletPageContent() {
     [activeFilters]
   );
   const hasActiveFilters = activeFilters.length > 0;
+
+  useEffect(() => {
+    if (!isExportMenuOpen) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsExportMenuOpen(false);
+      }
+    }
+
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (exportMenuRef.current && !exportMenuRef.current.contains(target)) {
+        setIsExportMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [isExportMenuOpen]);
 
 
   // Retry function
@@ -310,6 +338,7 @@ function WalletPageContent() {
 
       setIsExporting(true);
       try {
+        setIsExportMenuOpen(false);
         // Determine which entries to export
         let entriesToExport: WalletLedgerEntry[];
         let filenameSuffix: string;
@@ -506,17 +535,25 @@ function WalletPageContent() {
 
             <div className="flex items-center gap-2">
               {/* CSV Export Dropdown */}
-              <div className="relative group">
+              <div
+                ref={exportMenuRef}
+                className="relative"
+                onMouseEnter={() => setIsExportMenuOpen(true)}
+                onMouseLeave={() => setIsExportMenuOpen(false)}
+              >
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={isExporting || ledgerState.type !== "success"}
+                  aria-haspopup="menu"
+                  aria-expanded={isExportMenuOpen}
+                  onClick={() => setIsExportMenuOpen((v) => !v)}
                   className="border-3 border-foreground bg-background font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                 >
                   {isExporting ? (
                     <>
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Exporting...
+                      Preparing CSV...
                     </>
                   ) : (
                     <>
@@ -526,20 +563,27 @@ function WalletPageContent() {
                   )}
                 </Button>
                 {/* Export Options Dropdown */}
-                <div className="absolute right-0 top-full z-10 mt-2 hidden w-56 rounded-md border-3 border-foreground bg-background p-2 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] group-hover:block">
+                <div
+                  role="menu"
+                  className={`absolute right-0 top-full z-10 mt-2 w-56 rounded-md border-3 border-foreground bg-background p-2 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] ${
+                    isExportMenuOpen ? "block" : "hidden"
+                  }`}
+                >
                   <p className="mb-2 px-2 text-xs font-medium text-muted-foreground">
                     Export options
                   </p>
                   <button
                     onClick={() => handleExportCsv(false)}
+                    disabled={isExporting || ledgerState.type !== "success"}
                     className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-muted text-left"
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Export all entries
                   </button>
-                  {featureFlags.enableAdvancedWalletOps && hasActiveFilters && (
+                  {hasActiveFilters && (
                     <button
                       onClick={() => handleExportCsv(true)}
+                      disabled={isExporting || ledgerState.type !== "success"}
                       className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-muted text-left"
                     >
                       <Filter className="mr-2 h-4 w-4" />
