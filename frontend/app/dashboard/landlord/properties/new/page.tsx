@@ -18,6 +18,8 @@ import {
   Plus,
   ImageIcon,
 } from "lucide-react"
+import { landlordApi } from "@/lib/landlordApi"
+import { showErrorToast, showSuccessToast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -86,6 +88,7 @@ export default function NewPropertyPage() {
     sqm: "",
     yearBuilt: "",
   })
+  const [submitting, setSubmitting] = useState(false)
 
   const handleImageUpload = (roomType: string) => {
     // In a real app, this would open a file picker
@@ -109,9 +112,32 @@ export default function NewPropertyPage() {
     )
   }
 
-  const handleSubmit = () => {
-    // In a real app, this would submit to the backend
-    router.push("/dashboard/landlord")
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true)
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        propertyType: formData.propertyType,
+        location: formData.location,
+        address: formData.address,
+        price: formData.price,
+        beds: formData.beds,
+        baths: formData.baths,
+        sqm: formData.sqm,
+        yearBuilt: formData.yearBuilt,
+        amenities: selectedAmenities,
+        images: images.map(({ id, roomType, preview }) => ({ id, roomType, preview })),
+      }
+
+      await landlordApi.createProperty(payload)
+      showSuccessToast("Property submitted for review.")
+      router.push("/dashboard/landlord")
+    } catch (error) {
+      showErrorToast(error, "Failed to create property. Please check your inputs and try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -466,9 +492,10 @@ export default function NewPropertyPage() {
               </Button>
               <Button
                 onClick={handleSubmit}
+                disabled={submitting}
                 className="border-3 border-foreground bg-primary px-8 py-6 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
               >
-                Publish Property
+                {submitting ? "Publishing..." : "Publish Property"}
               </Button>
             </div>
           </Card>

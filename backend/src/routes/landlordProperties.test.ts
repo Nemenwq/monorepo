@@ -67,6 +67,36 @@ describe('Landlord Properties API', () => {
       expect(response.body.status).toBe(PropertyStatus.PENDING)
     })
 
+    it('accepts the frontend wizard payload shape', async () => {
+      const response = await request
+        .post('/api/landlord/properties')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          title: 'Wizard Property',
+          description: 'From wizard',
+          propertyType: 'apartment',
+          location: 'vi',
+          address: '12 Test Street, VI',
+          price: '3500000',
+          beds: '3',
+          baths: '2',
+          sqm: '120',
+          yearBuilt: '2020',
+          amenities: ['24/7 Security', 'Parking Space'],
+          images: [
+            { id: 'living-1', roomType: 'living', preview: '/placeholder.svg?text=living' },
+          ],
+        })
+
+      expect(response.status).toBe(201)
+      expect(response.body.title).toBe('Wizard Property')
+      expect(response.body.landlordId).toBe(landlordId)
+      expect(response.body.bedrooms).toBe(3)
+      expect(response.body.bathrooms).toBe(2)
+      expect(response.body.annualRentNgn).toBe(3500000)
+      expect(Array.isArray(response.body.photos)).toBe(true)
+    })
+
     it('should return 401 without token', async () => {
       const response = await request
         .post('/api/landlord/properties')

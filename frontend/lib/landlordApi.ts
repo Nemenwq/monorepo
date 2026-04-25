@@ -1,4 +1,5 @@
 import { apiFetch } from "./api";
+import { apiPost } from "./api";
 
 export interface LandlordStat {
   label: string;
@@ -33,18 +34,22 @@ export interface LandlordDashboardData {
 
 export const landlordApi = {
   getDashboardData: async (): Promise<LandlordDashboardData> => {
-    return apiFetch<LandlordDashboardData>("/landlord/dashboard");
+    return apiFetch<LandlordDashboardData>("/api/landlord/dashboard");
   },
 
   getProperties: async (): Promise<LandlordProperty[]> => {
-    return apiFetch<LandlordProperty[]>("/landlord/properties");
+    return apiFetch<LandlordProperty[]>("/api/landlord/properties");
   },
 
   getProperty: async (id: string | number): Promise<LandlordProperty> => {
-    return apiFetch<LandlordProperty>(`/landlord/properties/${id}`);
+    return apiFetch<LandlordProperty>(`/api/landlord/properties/${id}`);
   },
 
   getApplications: async (): Promise<any[]> => {
-    return apiFetch<any[]>("/landlord/applications");
+    return apiFetch<any[]>("/api/landlord/applications");
+  },
+
+  createProperty: async (payload: unknown): Promise<any> => {
+    return apiPost<any>("/api/landlord/properties", payload);
   },
 };

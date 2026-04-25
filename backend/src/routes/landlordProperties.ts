@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js'
 import { landlordPropertyStore } from '../models/landlordPropertyStore.js'
+import { validate } from '../middleware/validate.js'
 import {
   createPropertySchema,
   updatePropertySchema,
@@ -74,15 +75,15 @@ router.get(
 router.post(
   '/',
   authenticateToken,
+  validate(createPropertySchema, 'body'),
   async (req: AuthenticatedRequest, res: Response, next) => {
     try {
       if (req.user?.role !== 'landlord') {
         throw new AppError(ErrorCode.FORBIDDEN, 403, 'Only landlords can create properties')
       }
 
-      const input = createPropertySchema.parse(req.body)
       const property = await landlordPropertyStore.create({
-        ...input,
+        ...(req.body as any),
         landlordId: req.user.id,
       })
 
