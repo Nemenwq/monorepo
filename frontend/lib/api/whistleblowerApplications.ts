@@ -152,3 +152,63 @@ export function getValidationErrors(error: unknown): Record<string, string> | nu
   
   return null;
 }
+
+/**
+ * Whistleblower Earnings API Client
+ */
+
+export interface EarningsTotals {
+  totalNgn: number;
+  pendingNgn: number;
+  paidNgn: number;
+  totalUsdc?: number;
+  pendingUsdc?: number;
+  paidUsdc?: number;
+}
+
+export interface EarningsHistoryItem {
+  rewardId: string;
+  listingId: string;
+  dealId: string;
+  amountNgn: number;
+  amountUsdc: number;
+  status: 'pending' | 'payable' | 'paid';
+  createdAt: string;
+  paidAt?: string;
+}
+
+export interface EarningsResponse {
+  totals: EarningsTotals;
+  history: EarningsHistoryItem[];
+}
+
+/**
+ * Fetches earnings data for a specific whistleblower.
+ * 
+ * @param whistleblowerId - The ID of the whistleblower
+ * @returns Promise resolving to the earnings response
+ * @throws Error if the request fails
+ */
+export async function getWhistleblowerEarnings(
+  whistleblowerId: string
+): Promise<EarningsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/whistleblower/${whistleblowerId}/earnings`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(
+      result.error?.message || 'Failed to fetch earnings'
+    ) as Error & { apiError?: ApiError; statusCode?: number };
+    error.apiError = result as ApiError;
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  return result as EarningsResponse;
+}
