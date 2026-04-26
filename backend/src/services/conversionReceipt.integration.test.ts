@@ -64,8 +64,6 @@ describe('Conversion Receipt Integration Tests', () => {
     return await outboxStore.listByDealId('conversion', TxType.CONVERSION)
   }
 
-  // Placeholder for integration tests
-  // Tests will be implemented in subsequent tasks
   it('should have test infrastructure set up', () => {
     expect(conversionService).toBeDefined()
     expect(outboxSender).toBeDefined()

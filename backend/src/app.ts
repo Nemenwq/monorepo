@@ -57,6 +57,7 @@ import {
   PostgresLinkedAddressStore,
 } from "./models/linkedAddressStore.js";
 import { StubRewardsDataLayer } from "./services/stub-rewards-data-layer.js";
+import { PostgresRewardsDataLayer } from "./services/postgres-rewards-data-layer.js";
 import authRouter from "./routes/auth.js";
 import { ReceiptIndexer } from "./indexer/worker.js";
 import { createReceiptsRouter } from "./routes/receiptsRoute.js";
@@ -225,7 +226,10 @@ export function createApp() {
     : new InMemoryLinkedAddressStore();
   const ngnWalletService = new NgnWalletService();
 
-  const rewardsDataLayer = new StubRewardsDataLayer();
+  // Initialize rewards data layer - use persistent implementation when DATABASE_URL is set
+  const rewardsDataLayer = process.env.DATABASE_URL
+    ? new PostgresRewardsDataLayer()
+    : new StubRewardsDataLayer();
   const earningsService = new EarningsServiceImpl(rewardsDataLayer, {
     usdcToNgnRate: 1600, // Example exchange rate: 1 USDC = 1600 NGN
   });
