@@ -119,6 +119,7 @@ import {
   initWhistleblowerSignupApplicationStore,
 } from "./models/whistleblowerSignupApplicationStore.js";
 import { createPartnerLandlordApplicationsRouter } from "./routes/partnerLandlordApplications.js";
+import { createApartmentReviewsRouter } from "./routes/apartmentReviews.js";
 
 import {
   sanitizeRequest,
@@ -488,6 +489,7 @@ export function createApp() {
   app.use("/api/tenant/payments", createTenantPaymentsRouter());
   app.use("/api/notifications", createNotificationsRouter());
   app.use("/api/admin", createSettlementAdminRouter());
+  app.use("/api/apartment-reviews", createApartmentReviewsRouter());
   app.use("/api", migrationGuideRouter);
 
   // Interactive API documentation
