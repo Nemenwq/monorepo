@@ -40,12 +40,20 @@ export default function MessagesPage() {
     number | null
   >(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newMessage, setNewMessage] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  
+  const newMessage = selectedConversationId !== null ? drafts[selectedConversationId] || "" : "";
+  const setNewMessage = (val: string) => {
+    if (selectedConversationId !== null) {
+      setDrafts(prev => ({ ...prev, [selectedConversationId]: val }));
+    }
+  };
+
   const [messages, setMessages] = useState<Message[]>(messageThreads[1] ?? []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if messaging feature is enabled (stub - always false for now)
-  const isMessagingEnabled = false;
+  const isMessagingEnabled = true;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -206,6 +214,7 @@ export default function MessagesPage() {
             filteredConversations.map((conv) => (
               <button
                 key={conv.id}
+                aria-label={`Select conversation with ${conv.participant.name}`}
                 onClick={() => handleSelectConversation(conv.id)}
                 className={`w-full border-b-3 border-foreground p-4 text-left transition-colors ${
                   selectedConversationId === conv.id
@@ -263,6 +272,7 @@ export default function MessagesPage() {
               {/* Mobile back button */}
               <button
                 onClick={() => setSelectedConversationId(null)}
+                aria-label="Back to conversations"
                 className="flex h-10 w-10 items-center justify-center border-3 border-foreground bg-muted md:hidden"
               >
                 <ChevronLeft className="h-5 w-5" />
