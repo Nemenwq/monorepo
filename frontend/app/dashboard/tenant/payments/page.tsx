@@ -621,11 +621,10 @@ export default function TenantPaymentsPage() {
                       <div className="ml-auto h-4 w-4 border border-foreground bg-foreground" />
                     </div>
                   </div>
-                  </div>
-                </Card>
-              </div>
-            )}
-          </div>
+                </div>
+              </Card>
+            </div>
+          )}
 
           {showDisputeModal && disputePayment && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -694,9 +693,7 @@ export default function TenantPaymentsPage() {
                   <Button
                     onClick={async () => {
                       if (!disputeReason || disputeDescription.length < 10) {
-                        showErrorToast(
-                          "Please select a reason and provide at least 10 characters",
-                        );
+                        showErrorToast("Please select a reason and provide at least 10 characters");
                         return;
                       }
                       setIsSubmittingDispute(true);
@@ -713,8 +710,8 @@ export default function TenantPaymentsPage() {
                           setDisputeReason("");
                           setDisputeDescription("");
                         }
-                      } catch (error: any) {
-                        showErrorToast(error?.message || "Failed to submit dispute");
+                      } catch (error: unknown) {
+                        showErrorToast((error as Error)?.message || "Failed to submit dispute");
                       } finally {
                         setIsSubmittingDispute(false);
                       }
@@ -732,8 +729,8 @@ export default function TenantPaymentsPage() {
               </Card>
             </div>
           )}
-        </main>
-      </div>
-    );
-  }
+        </div>
+      </main>
+    </div>
+  );
 }
