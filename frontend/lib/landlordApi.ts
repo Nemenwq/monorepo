@@ -32,6 +32,36 @@ export interface LandlordDashboardData {
   properties: LandlordProperty[];
 }
 
+export interface OccupancyData {
+  date: string;
+  rate: number;
+}
+
+export interface RevenueData {
+  month: string;
+  expected: number;
+  collected: number;
+}
+
+export interface PaymentTrendData {
+  date: string;
+  onTime: number;
+  late: number;
+  missed: number;
+}
+
+export interface VacancyMetrics {
+  averageTimeToFill: number;
+  currentVacancyCount: number;
+}
+
+export interface LandlordAnalytics {
+  occupancyTrend: OccupancyData[];
+  revenueBreakdown: RevenueData[];
+  paymentTrends: PaymentTrendData[];
+  vacancyMetrics: VacancyMetrics;
+}
+
 export const landlordApi = {
   getDashboardData: async (): Promise<LandlordDashboardData> => {
     return apiFetch<LandlordDashboardData>("/api/landlord/dashboard");
@@ -47,6 +77,11 @@ export const landlordApi = {
 
   getApplications: async (): Promise<any[]> => {
     return apiFetch<any[]>("/api/landlord/applications");
+  },
+
+  getAnalytics: async (params?: { startDate?: string; endDate?: string; propertyId?: string }): Promise<LandlordAnalytics> => {
+    const query = new URLSearchParams(params as any).toString();
+    return apiFetch<LandlordAnalytics>(`/api/landlord/analytics?${query}`);
   },
 
   createProperty: async (payload: unknown): Promise<any> => {

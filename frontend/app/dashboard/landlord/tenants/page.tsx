@@ -29,6 +29,9 @@ interface Tenant {
   verified: boolean;
 }
 
+import { DashboardHeader } from "@/components/dashboard-header";
+import { LandlordSidebar } from "@/components/landlord/LandlordSidebar";
+
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,52 +73,9 @@ export default function TenantsPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r-3 border-foreground bg-card pt-20 lg:block">
-        <div className="px-4">
-          <nav className="space-y-2">
-            <Link
-              href="/dashboard/landlord"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Home className="h-5 w-5" />
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard/landlord/properties"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Building2 className="h-5 w-5" />
-              My Properties
-            </Link>
-            <Link
-              href="/dashboard/landlord/tenants"
-              className="flex items-center gap-3 border-3 border-foreground bg-primary p-3 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Users className="h-5 w-5" />
-              My Tenants
-            </Link>
-            <Link
-              href="/messages"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <MessageSquare className="h-5 w-5" />
-              Messages
-              <span className="ml-auto flex h-6 w-6 items-center justify-center border-2 border-foreground bg-destructive text-xs font-bold text-destructive-foreground">
-                3
-              </span>
-            </Link>
-            <Link
-              href="/dashboard/landlord/settings"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Settings className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </div>
-      </aside>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader />
+      <LandlordSidebar />
 
       {/* Main Content */}
       <main className="min-h-screen w-full pt-20 lg:ml-64">

@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { LandlordSidebar } from "@/components/landlord/LandlordSidebar";
 import { apiFetch } from "@/lib/api";
 import { landlordPaymentHistory } from "@/lib/mockData";
 
@@ -50,6 +51,7 @@ export default function LandlordSettingsPage() {
       paymentUpdates: true,
       propertyViews: false,
       marketingTips: false,
+      payoutUpdates: true, // Ensuring compatibility if needed
     },
     payout: {
       bankName: "",
@@ -96,55 +98,7 @@ export default function LandlordSettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
-
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r-3 border-foreground bg-card pt-20">
-        <div className="flex h-full flex-col px-4 py-6">
-          <div className="mb-8 border-3 border-foreground bg-accent p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
-            <p className="text-sm font-medium text-foreground">Logged in as</p>
-            <p className="text-lg font-bold text-foreground">{settings.profile.fullName || "Loading..."}</p>
-            <p className="text-sm text-muted-foreground">Landlord</p>
-          </div>
-
-          <nav className="flex-1 space-y-2">
-            <Link
-              href="/dashboard/landlord"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Home className="h-5 w-5" />
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard/landlord/properties"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Building2 className="h-5 w-5" />
-              My Properties
-            </Link>
-            <Link
-              href="/dashboard/landlord/tenants"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Users className="h-5 w-5" />
-              My Tenants
-            </Link>
-            <Link
-              href="/messages"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <MessageSquare className="h-5 w-5" />
-              Messages
-            </Link>
-            <Link
-              href="/dashboard/landlord/settings"
-              className="flex items-center gap-3 border-3 border-foreground bg-primary p-3 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Settings className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </div>
-      </aside>
+      <LandlordSidebar />
 
       {/* Main Content */}
       <main className="ml-64 min-h-screen pt-20">
