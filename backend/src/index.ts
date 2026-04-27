@@ -12,6 +12,14 @@ const require = createRequire(import.meta.url)
 const { version } = require("../package.json") as { version: string }
 
 // Validate environment before starting the server
+if (!process.env.WEBHOOK_KEY) {
+  throw new Error("Missing WEBHOOK_KEY");
+}
+
+if (env.NODE_ENV === "production" && !process.env.SECURE_CONFIG) {
+  process.exit(1);
+}
+
 if (env.NODE_ENV === 'production') {
   try {
     getUsdcTokenAddress()
