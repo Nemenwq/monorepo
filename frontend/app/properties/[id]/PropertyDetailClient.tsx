@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -53,6 +53,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { allProperties } from "@/lib/mockData/properties";
 import { AmenitiesLegend } from "@/components/properties/AmenitiesLegend";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
+import { apiPost } from "@/lib/api";
+import { VerificationBadge, VerificationStatus } from "@/components/properties/verification-badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ApartmentReviews } from "@/components/properties/ApartmentReviews";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
 const properties = allProperties;
 
@@ -104,6 +110,62 @@ export default function PropertyDetailClient({
   const [reportCategory, setReportCategory] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  const mainGalleryRef = useRef<HTMLDivElement>(null);
+
+  // Handle keyboard navigation for lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!showLightbox) return;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          prevImage();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          nextImage();
+          break;
+        case "Escape":
+          e.preventDefault();
+          setShowLightbox(false);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showLightbox, activeImageIndex]);
+
+  // Handle keyboard navigation for main gallery
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showLightbox) return; // Let lightbox handle it
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          prevImage();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          nextImage();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showLightbox, activeImageIndex]);
+
+  // Focus lightbox when opened
+  useEffect(() => {
+    if (showLightbox && lightboxRef.current) {
+      lightboxRef.current.focus();
+    }
+  }, [showLightbox]);
 
   const property = properties.find((p) => p.id === Number.parseInt(propertyId));
 
@@ -153,23 +215,38 @@ export default function PropertyDetailClient({
     );
   };
 
-  const handleReportSubmit = () => {
+  const handleReportSubmit = async () => {
     if (!reportCategory || !reportDetails.trim()) return;
 
-    // Stub: In production, this would send to backend
-    console.log("Report submitted:", {
-      propertyId,
-      reportCategory,
-      reportDetails,
-    });
+    setIsSubmittingReport(true);
 
-    setReportSubmitted(true);
-    setTimeout(() => {
-      setShowReportDialog(false);
-      setReportSubmitted(false);
-      setReportCategory("");
-      setReportDetails("");
-    }, 2000);
+    try {
+      const response = await apiPost<{ success: boolean; reportId: string }>(
+        "/api/property-issue-reports",
+        {
+          propertyId,
+          reportCategory,
+          reportDetails,
+        }
+      );
+
+      if (response.success) {
+        setReportSubmitted(true);
+        showSuccessToast("Report submitted successfully!");
+
+        // Reset dialog state after successful submission
+        setTimeout(() => {
+          setShowReportDialog(false);
+          setReportSubmitted(false);
+          setReportCategory("");
+          setReportDetails("");
+        }, 2000);
+      }
+    } catch (error) {
+      showErrorToast(error, "Failed to submit report. Please try again.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
   const handleShare = async () => {
@@ -335,9 +412,20 @@ export default function PropertyDetailClient({
               {/* Title & Location */}
               <div>
                 <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                  <h1 className="font-mono text-2xl font-black md:text-3xl lg:text-4xl">
-                    {property.title}
-                  </h1>
+                  <div className="flex flex-col gap-2">
+                    <h1 className="font-mono text-2xl font-black md:text-3xl lg:text-4xl">
+                      {property.title}
+                    </h1>
+                    <div className="flex items-center gap-3">
+                      <VerificationBadge status={(property as any).verificationStatus || 'PENDING'} />
+                      {(property as any).verificationStatus === 'VERIFIED' && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          Verified by <span className="font-bold underline">ShelterFlex Agent #104</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => setIsFavorite(!isFavorite)}
@@ -469,6 +557,21 @@ export default function PropertyDetailClient({
                   })}
                 </div>
               </div>
+
+              {/* Reviews Section */}
+              <div className="border-3 border-foreground bg-card p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
+                <h2 className="font-mono text-xl font-bold mb-6">
+                  User Feedback & Reviews
+                </h2>
+                <Suspense fallback={
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                    <p className="text-muted-foreground font-mono">Loading reviews...</p>
+                  </div>
+                }>
+                  <ApartmentReviews key={propertyId} propertyId={propertyId} />
+                </Suspense>
+              </div>
             </div>
 
             {/* Sidebar - Pricing & CTA */}
@@ -489,7 +592,7 @@ export default function PropertyDetailClient({
                     <div className="flex items-center gap-2 mb-3">
                       <Calculator className="h-5 w-5 text-primary" />
                       <span className="font-mono font-bold">
-                        Pay with Sheltaflex
+                        Pay with Shelterflex
                       </span>
                     </div>
 
@@ -530,11 +633,36 @@ export default function PropertyDetailClient({
                     </div>
                   </div>
 
-                  <Link href={`/calculator?amount=${property.price}`}>
-                    <Button className="w-full border-3 border-foreground bg-primary py-6 font-mono text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
-                      Apply Now
-                    </Button>
-                  </Link>
+                  {(property as any).verificationStatus === 'VERIFIED' ? (
+                    <Link href={`/calculator?amount=${property.price}`}>
+                      <Button className="w-full border-3 border-foreground bg-primary py-6 font-mono text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
+                        Apply Now
+                      </Button>
+                    </Link>
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="w-full">
+                            <Button
+                              disabled
+                              className="w-full border-3 border-foreground bg-muted py-6 font-mono text-lg font-bold opacity-60 cursor-not-allowed"
+                            >
+                              Apply Now
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="border-2 border-foreground bg-background p-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
+                          <p className="font-mono text-xs font-bold">
+                            {(property as any).verificationStatus === 'PENDING'
+                              ? "Booking is gated while property verification is pending."
+                              : "This property was rejected during verification and cannot be booked."}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+
 
                   <p className="text-center text-xs text-muted-foreground mt-3">
                     Get instant approval in minutes
@@ -677,7 +805,14 @@ export default function PropertyDetailClient({
 
       {/* Lightbox Modal */}
       {showLightbox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/90 p-4">
+        <div
+          ref={lightboxRef}
+          tabIndex={0}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/90 p-4 outline-none"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image gallery"
+        >
           <button
             onClick={() => setShowLightbox(false)}
             className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center border-3 border-background bg-background text-foreground"
@@ -845,10 +980,17 @@ export default function PropertyDetailClient({
                 </Button>
                 <Button
                   onClick={handleReportSubmit}
-                  disabled={!reportCategory || !reportDetails.trim()}
+                  disabled={!reportCategory || !reportDetails.trim() || isSubmittingReport}
                   className="border-3 border-foreground bg-primary shadow-[3px_3px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                 >
-                  Submit Report
+                  {isSubmittingReport ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Report"
+                  )}
                 </Button>
               </DialogFooter>
             </>

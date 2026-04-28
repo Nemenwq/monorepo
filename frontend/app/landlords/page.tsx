@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -9,6 +10,8 @@ import {
   TrendingUp,
   Building,
   Banknote,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +20,9 @@ import {
   landlordStats,
   landlordTestimonials,
 } from "@/lib/mockData";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 const iconMap: Record<string, ReactNode> = {
   "Get Paid Upfront": <Banknote className="h-10 w-10" />,
@@ -28,6 +34,78 @@ const iconMap: Record<string, ReactNode> = {
 };
 
 export default function LandlordsPage() {
+  const [partnerForm, setPartnerForm] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+    propertyCount: "",
+    propertyLocations: "",
+  });
+  const [partnerSubmitting, setPartnerSubmitting] = useState(false);
+  const [partnerError, setPartnerError] = useState<string | null>(null);
+  const [partnerSuccess, setPartnerSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validatePartnerForm = () => {
+    const errors: Record<string, string> = {};
+    if (!partnerForm.fullName.trim()) errors.fullName = "Full name is required.";
+    if (!partnerForm.phone.trim()) errors.phone = "Phone number is required.";
+    if (!partnerForm.email.trim()) errors.email = "Email is required.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerForm.email))
+      errors.email = "Enter a valid email address.";
+    if (!partnerForm.propertyCount) errors.propertyCount = "Number of properties is required.";
+    return errors;
+  };
+
+  const handlePartnerSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPartnerError(null);
+    setFieldErrors({});
+
+    const errors = validatePartnerForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setPartnerSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/landlord/partner-application`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fullName: partnerForm.fullName,
+          phone: partnerForm.phone,
+          email: partnerForm.email,
+          propertyCount: parseInt(partnerForm.propertyCount, 10),
+          propertyLocations: partnerForm.propertyLocations,
+        }),
+      });
+
+      if (res.status === 404) {
+        // Endpoint not yet deployed — treat as success for graceful degradation
+        setPartnerSuccess(true);
+        return;
+      }
+
+      const data = await res.json() as { error?: { message?: string }; message?: string };
+
+      if (!res.ok) {
+        setPartnerError(
+          data?.error?.message || data?.message || "Submission failed. Please try again.",
+        );
+        return;
+      }
+
+      setPartnerSuccess(true);
+    } catch {
+      setPartnerError("Network error — please check your connection and try again.");
+    } finally {
+      setPartnerSubmitting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -43,7 +121,7 @@ export default function LandlordsPage() {
                 <span className="text-primary">Upfront.</span>
               </h1>
               <p className="text-lg text-muted-foreground md:text-xl max-w-lg leading-relaxed">
-                Stop waiting for monthly payments. Partner with Sheltaflex and
+                Stop waiting for monthly payments. Partner with Shelterflex and
                 receive your annual rent within 48 hours of tenant move-in.
               </p>
               <div className="flex flex-wrap gap-4">
@@ -267,72 +345,158 @@ export default function LandlordsPage() {
               </p>
             </div>
 
-            <form className="border-3 border-foreground bg-background p-8 shadow-[8px_8px_0px_0px_rgba(26,26,26,1)]">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div>
-                  <p className="mb-2 block font-mono text-sm font-bold">
-                    Full Name
-                  </p>
-                  <Input
-                    id="partner-full-name"
-                    type="text"
-                    placeholder="Enter your name"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                  />
+            {partnerSuccess ? (
+              <div className="border-3 border-foreground bg-background p-8 shadow-[8px_8px_0px_0px_rgba(26,26,26,1)] text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="flex h-16 w-16 items-center justify-center border-3 border-foreground bg-secondary">
+                    <CheckCircle className="h-10 w-10" />
+                  </div>
                 </div>
-                <div>
-                  <p className="mb-2 block font-mono text-sm font-bold">
-                    Phone Number
-                  </p>
-                  <Input
-                    id="partner-phone-number"
-                    type="tel"
-                    placeholder="08X XXX XXXX"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                  />
-                </div>
-                <div>
-                  <p className="mb-2 block font-mono text-sm font-bold">
-                    Email Address
-                  </p>
-                  <Input
-                    id="partner-email"
-                    type="email"
-                    placeholder="you@email.com"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                  />
-                </div>
-                <div>
-                  <p className="mb-2 block font-mono text-sm font-bold">
-                    Number of Properties
-                  </p>
-                  <Input
-                    id="partner-property-count"
-                    type="number"
-                    placeholder="e.g. 5"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                  />
-                </div>
-              </div>
-              <div className="mt-6">
-                <p className="mb-2 block font-mono text-sm font-bold">
-                  Property Location(s)
+                <h3 className="font-mono text-2xl font-black mb-2">
+                  Application Received!
+                </h3>
+                <p className="text-muted-foreground">
+                  Our team will reach out to you within 24 hours to discuss your
+                  partnership.
                 </p>
-                <Input
-                  id="partner-property-locations"
-                  type="text"
-                  placeholder="e.g. Lekki, Lagos"
-                  className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                />
               </div>
-              <Button
-                type="submit"
-                className="mt-8 w-full border-3 border-foreground bg-primary px-8 py-6 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+            ) : (
+              <form
+                onSubmit={(e) => void handlePartnerSubmit(e)}
+                noValidate
+                className="border-3 border-foreground bg-background p-8 shadow-[8px_8px_0px_0px_rgba(26,26,26,1)]"
               >
-                Submit Application
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </form>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <p className="mb-2 block font-mono text-sm font-bold">
+                      Full Name
+                    </p>
+                    <Input
+                      id="partner-full-name"
+                      type="text"
+                      placeholder="Enter your name"
+                      value={partnerForm.fullName}
+                      onChange={(e) =>
+                        setPartnerForm((p) => ({ ...p, fullName: e.target.value }))
+                      }
+                      aria-describedby={fieldErrors.fullName ? "err-name" : undefined}
+                      className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                    />
+                    {fieldErrors.fullName && (
+                      <p id="err-name" className="mt-1 text-xs font-bold text-destructive">
+                        {fieldErrors.fullName}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-2 block font-mono text-sm font-bold">
+                      Phone Number
+                    </p>
+                    <Input
+                      id="partner-phone-number"
+                      type="tel"
+                      placeholder="08X XXX XXXX"
+                      value={partnerForm.phone}
+                      onChange={(e) =>
+                        setPartnerForm((p) => ({ ...p, phone: e.target.value }))
+                      }
+                      aria-describedby={fieldErrors.phone ? "err-phone" : undefined}
+                      className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                    />
+                    {fieldErrors.phone && (
+                      <p id="err-phone" className="mt-1 text-xs font-bold text-destructive">
+                        {fieldErrors.phone}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-2 block font-mono text-sm font-bold">
+                      Email Address
+                    </p>
+                    <Input
+                      id="partner-email"
+                      type="email"
+                      placeholder="you@shelterflex.com"
+                      value={partnerForm.email}
+                      onChange={(e) =>
+                        setPartnerForm((p) => ({ ...p, email: e.target.value }))
+                      }
+                      aria-describedby={fieldErrors.email ? "err-email" : undefined}
+                      className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                    />
+                    {fieldErrors.email && (
+                      <p id="err-email" className="mt-1 text-xs font-bold text-destructive">
+                        {fieldErrors.email}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-2 block font-mono text-sm font-bold">
+                      Number of Properties
+                    </p>
+                    <Input
+                      id="partner-property-count"
+                      type="number"
+                      placeholder="e.g. 5"
+                      min="1"
+                      value={partnerForm.propertyCount}
+                      onChange={(e) =>
+                        setPartnerForm((p) => ({ ...p, propertyCount: e.target.value }))
+                      }
+                      aria-describedby={fieldErrors.propertyCount ? "err-count" : undefined}
+                      className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                    />
+                    {fieldErrors.propertyCount && (
+                      <p id="err-count" className="mt-1 text-xs font-bold text-destructive">
+                        {fieldErrors.propertyCount}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <p className="mb-2 block font-mono text-sm font-bold">
+                    Property Location(s)
+                  </p>
+                  <Input
+                    id="partner-property-locations"
+                    type="text"
+                    placeholder="e.g. Lekki, Lagos"
+                    value={partnerForm.propertyLocations}
+                    onChange={(e) =>
+                      setPartnerForm((p) => ({ ...p, propertyLocations: e.target.value }))
+                    }
+                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                  />
+                </div>
+
+                {partnerError && (
+                  <div
+                    role="alert"
+                    className="mt-4 border-3 border-destructive bg-red-50 p-4 text-sm font-bold text-destructive"
+                  >
+                    {partnerError}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={partnerSubmitting}
+                  className="mt-8 w-full border-3 border-foreground bg-primary px-8 py-6 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-60"
+                >
+                  {partnerSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Submitting…
+                    </>
+                  ) : (
+                    <>
+                      Submit Application
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </section>

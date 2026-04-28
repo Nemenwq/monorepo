@@ -12,6 +12,7 @@ export const allProperties = [
     baths: 3,
     sqm: 150,
     image: "/properties/1/exterior.jpg",
+    verificationStatus: "VERIFIED",
     tag: "POPULAR",
     tagColor: "bg-primary",
     description:
@@ -57,6 +58,7 @@ export const allProperties = [
     baths: 2,
     sqm: 120,
     image: "/properties/2/exterior.jpg",
+    verificationStatus: "VERIFIED",
     tag: "NEW",
     tagColor: "bg-secondary",
     description:
@@ -99,6 +101,7 @@ export const allProperties = [
     baths: 4,
     sqm: 300,
     image: "/properties/3/exterior.jpg",
+    verificationStatus: "VERIFIED",
     tag: "PREMIUM",
     tagColor: "bg-accent",
     description:
@@ -146,6 +149,7 @@ export const allProperties = [
     baths: 1,
     sqm: 45,
     image: "/properties/4/exterior.jpg",
+    verificationStatus: "PENDING",
     tag: null,
     tagColor: null,
     description:
@@ -186,6 +190,7 @@ export const allProperties = [
     baths: 3,
     sqm: 180,
     image: "/properties/5/exterior.jpg",
+    verificationStatus: "REJECTED",
     tag: "HOT",
     tagColor: "bg-destructive",
     description:
@@ -229,6 +234,7 @@ export const allProperties = [
     baths: 3,
     sqm: 220,
     image: "/properties/6/exterior.jpg",
+    verificationStatus: "VERIFIED",
     tag: null,
     tagColor: null,
     description:
@@ -272,6 +278,7 @@ export const allProperties = [
     baths: 2,
     sqm: 100,
     image: "/properties/7/exterior.jpg",
+    verificationStatus: "VERIFIED",
     tag: "NEW",
     tagColor: "bg-secondary",
     description:
@@ -313,6 +320,7 @@ export const allProperties = [
     baths: 5,
     sqm: 400,
     image: "/properties/8/exterior.jpg",
+    verificationStatus: "VERIFIED",
     tag: "LUXURY",
     tagColor: "bg-accent",
     description:

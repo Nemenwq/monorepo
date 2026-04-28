@@ -9,7 +9,9 @@ import { paymentsWebhookSchema } from "../schemas/deposit.js";
 import { depositReversalWebhookSchema } from "../schemas/risk.js";
 import { depositStore } from "../models/depositStore.js";
 import { ngnDepositStore } from "../models/ngnDepositStore.js";
+import { webhookEventDedupeStore } from "../models/webhookEventDedupeStore.js";
 import { logger } from "../utils/logger.js";
+import { recordKPI } from "../utils/appMetrics.js";
 import { AppError } from "../errors/AppError.js";
 import { ErrorCode } from "../errors/errorCodes.js";
 import { outboxStore, OutboxSender, TxType } from "../outbox/index.js";
@@ -18,6 +20,7 @@ import { getSorobanConfigFromEnv } from "../soroban/client.js";
 import { NgnWalletService } from "../services/ngnWalletService.js";
 import { getPaymentProvider } from "../payments/index.js";
 import { requireValidWebhookSignature } from "../payments/webhookSignature.js";
+import { jsonPayloadSha256Hex } from "../utils/sha256.js";
 
 export function createWebhooksRouter(ngnWalletService: NgnWalletService) {
   const router = Router();
@@ -52,6 +55,25 @@ export function createWebhooksRouter(ngnWalletService: NgnWalletService) {
         // Validate rail matches externalRefSource
         if (externalRefSource !== rail) {
           throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Rail mismatch");
+        }
+
+        // Persisted idempotency on provider event id (after signature validation) — replays short-circuit here.
+        const payloadHash = jsonPayloadSha256Hex(req.body);
+        const claim = await webhookEventDedupeStore.tryClaim({
+          rail,
+          providerEventId: parsed.providerEventId,
+          payloadHash,
+        });
+        if (claim === "duplicate") {
+          recordKPI("webhookEventDeduped");
+          logger.info("Webhook event deduplicated (provider event id)", {
+            rail,
+            providerEventId: parsed.providerEventId,
+            requestId: req.requestId,
+          });
+          return res
+            .status(200)
+            .json({ success: true, deduped: true, providerEventId: parsed.providerEventId });
         }
 
         const existingStakingDeposit = await depositStore.getByCanonical(

@@ -15,6 +15,8 @@ backend/.env
 contracts/target
 contracts/.soroban
 
+docs/PLATFORM_OVERVIEW.md
+
 # Build & Cache
 dist/
 .npm
@@ -25,3 +27,4 @@ issue.md
 pr.md
 checks.md
 ISSUE_437_IMPLEMENTATION.md
+ISSUE_CONTEXT.md

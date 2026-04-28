@@ -39,6 +39,14 @@ interface BusinessKPIs {
   paymentsCompleted: number
   paymentsFailed: number
   stakingDeposits: number
+  /** Replayed PSP webhooks skipped after provider event id deduplication */
+  webhookEventDeduped: number
+  idempotencyCacheHit: number
+  idempotencyLeaseReclaimed: number
+  idempotencyStaleReclaimed: number
+  settlementOutboxDone: number
+  settlementOutboxDead: number
+  notificationCreated: number
 }
 
 interface AlertThresholds {
@@ -56,6 +64,13 @@ const kpis: BusinessKPIs = {
   paymentsCompleted: 0,
   paymentsFailed: 0,
   stakingDeposits: 0,
+  webhookEventDeduped: 0,
+  idempotencyCacheHit: 0,
+  idempotencyLeaseReclaimed: 0,
+  idempotencyStaleReclaimed: 0,
+  settlementOutboxDone: 0,
+  settlementOutboxDead: 0,
+  notificationCreated: 0,
 }
 const startedAt = Date.now()
 

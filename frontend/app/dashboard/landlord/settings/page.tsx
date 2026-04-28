@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -18,6 +18,8 @@ import {
   Save,
   Eye,
   EyeOff,
+  Loader2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,6 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { LandlordSidebar } from "@/components/landlord/LandlordSidebar";
+import { apiFetch } from "@/lib/api";
 import { landlordPaymentHistory } from "@/lib/mockData";
 
 export default function LandlordSettingsPage() {
@@ -32,6 +36,57 @@ export default function LandlordSettingsPage() {
     "profile" | "notifications" | "security" | "payment"
   >("profile");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState({
+    profile: {
+      fullName: "",
+      email: "",
+      companyName: "",
+      phone: "",
+      address: "",
+    },
+    notifications: {
+      newInquiries: true,
+      paymentUpdates: true,
+      propertyViews: false,
+      marketingTips: false,
+      payoutUpdates: true, // Ensuring compatibility if needed
+    },
+    payout: {
+      bankName: "",
+      accountNumber: "",
+      accountName: "",
+    }
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const data = await apiFetch<any>("/api/landlord/settings");
+        setSettings(data);
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiFetch("/api/landlord/settings", {
+        method: "PATCH",
+        body: JSON.stringify(settings)
+      });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
@@ -43,55 +98,7 @@ export default function LandlordSettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
-
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r-3 border-foreground bg-card pt-20">
-        <div className="flex h-full flex-col px-4 py-6">
-          <div className="mb-8 border-3 border-foreground bg-accent p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
-            <p className="text-sm font-medium text-foreground">Logged in as</p>
-            <p className="text-lg font-bold text-foreground">Chief Okonkwo</p>
-            <p className="text-sm text-muted-foreground">Landlord</p>
-          </div>
-
-          <nav className="flex-1 space-y-2">
-            <Link
-              href="/dashboard/landlord"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Home className="h-5 w-5" />
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard/landlord/properties"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Building2 className="h-5 w-5" />
-              My Properties
-            </Link>
-            <Link
-              href="/dashboard/landlord/tenants"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Users className="h-5 w-5" />
-              My Tenants
-            </Link>
-            <Link
-              href="/messages"
-              className="flex items-center gap-3 border-3 border-foreground bg-card p-3 font-bold transition-all hover:bg-muted hover:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <MessageSquare className="h-5 w-5" />
-              Messages
-            </Link>
-            <Link
-              href="/dashboard/landlord/settings"
-              className="flex items-center gap-3 border-3 border-foreground bg-primary p-3 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-            >
-              <Settings className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </div>
-      </aside>
+      <LandlordSidebar />
 
       {/* Main Content */}
       <main className="ml-64 min-h-screen pt-20">
@@ -127,29 +134,13 @@ export default function LandlordSettingsPage() {
             <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
               <h2 className="mb-6 text-xl font-bold">Profile Information</h2>
 
-              <div className="mb-8 flex items-center gap-6">
-                <div className="flex h-24 w-24 items-center justify-center border-3 border-foreground bg-accent text-3xl font-bold">
-                  CO
-                </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    className="border-3 border-foreground bg-transparent font-bold"
-                  >
-                    Change Photo
-                  </Button>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    JPG, PNG or GIF. Max 2MB
-                  </p>
-                </div>
-              </div>
-
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="full-name" className="font-bold">Full Name</Label>
                   <Input
                     id="full-name"
-                    defaultValue="Chief Emeka Okonkwo"
+                    value={settings.profile.fullName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, profile: { ...settings.profile, fullName: e.target.value } })}
                     className="border-3 border-foreground bg-background py-5 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
                   />
                 </div>
@@ -157,7 +148,8 @@ export default function LandlordSettingsPage() {
                   <Label htmlFor="company-name" className="font-bold">Company Name</Label>
                   <Input
                     id="company-name"
-                    defaultValue="Okonkwo Properties Ltd"
+                    value={settings.profile.companyName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, profile: { ...settings.profile, companyName: e.target.value } })}
                     className="border-3 border-foreground bg-background py-5 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
                   />
                 </div>
@@ -168,8 +160,9 @@ export default function LandlordSettingsPage() {
                     <Input
                       id="email"
                       type="email"
-                      defaultValue="chief@okonkwoproperties.com"
-                      className="border-3 border-foreground bg-background py-5 pl-12 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
+                      disabled
+                      value={settings.profile.email}
+                      className="border-3 border-foreground bg-muted py-5 pl-12 opacity-70"
                     />
                   </div>
                 </div>
@@ -179,7 +172,8 @@ export default function LandlordSettingsPage() {
                     <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="phone"
-                      defaultValue="+234 803 456 7890"
+                      value={settings.profile.phone}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, profile: { ...settings.profile, phone: e.target.value } })}
                       className="border-3 border-foreground bg-background py-5 pl-12 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
                     />
                   </div>
@@ -190,7 +184,8 @@ export default function LandlordSettingsPage() {
                     <MapPin className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
                     <Input
                       id="address"
-                      defaultValue="15 Adeola Odeku Street, Victoria Island, Lagos"
+                      value={settings.profile.address}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, profile: { ...settings.profile, address: e.target.value } })}
                       className="border-3 border-foreground bg-background py-5 pl-12 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
                     />
                   </div>
@@ -198,9 +193,13 @@ export default function LandlordSettingsPage() {
               </div>
 
               <div className="mt-6 flex justify-end">
-                <Button className="border-3 border-foreground bg-primary px-6 py-5 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
+                <Button 
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="border-3 border-foreground bg-primary px-6 py-5 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                >
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {saving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </Card>
@@ -216,31 +215,30 @@ export default function LandlordSettingsPage() {
               <div className="space-y-6">
                 {[
                   {
+                    id: "newInquiries",
                     title: "New Inquiries",
                     description:
                       "Get notified when tenants inquire about your properties",
-                    defaultChecked: true,
                   },
-
                   {
+                    id: "paymentUpdates",
                     title: "Payment Updates",
                     description: "Get notified about tenant payment status",
-                    defaultChecked: true,
                   },
                   {
+                    id: "propertyViews",
                     title: "Property Views",
                     description:
                       "Weekly summary of property views and engagement",
-                    defaultChecked: false,
                   },
                   {
+                    id: "marketingTips",
                     title: "Marketing Tips",
                     description: "Tips to improve your property listings",
-                    defaultChecked: false,
                   },
                 ].map((item) => (
                   <div
-                    key={item.title}
+                    key={item.id}
                     className="flex items-center justify-between border-b-2 border-foreground/10 pb-4 last:border-0"
                   >
                     <div>
@@ -249,9 +247,27 @@ export default function LandlordSettingsPage() {
                         {item.description}
                       </p>
                     </div>
-                    <Switch defaultChecked={item.defaultChecked} />
+                    <Switch 
+                      checked={(settings.notifications as any)[item.id]} 
+                      onCheckedChange={(checked: boolean) => {
+                        const newNotifications = { ...settings.notifications, [item.id]: checked };
+                        setSettings({ ...settings, notifications: newNotifications });
+                        // Optionally auto-save on switch? For now, let's just update state.
+                      }}
+                    />
                   </div>
                 ))}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button 
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="border-3 border-foreground bg-primary px-6 py-5 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                >
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {saving ? "Saving..." : "Save Preferences"}
+                </Button>
               </div>
             </Card>
           )}
@@ -336,34 +352,47 @@ export default function LandlordSettingsPage() {
                   <h3 className="font-bold mb-4">
                     Bank Account for Rent Payments
                   </h3>
-                  <div className="border-3 border-foreground bg-muted p-4">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Bank Name
-                        </p>
-                        <p className="font-bold">First Bank Nigeria</p>
+                  <div className="border-3 border-foreground bg-card p-6 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]">
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="bank-name" className="font-bold">Bank Name</Label>
+                        <Input
+                          id="bank-name"
+                          value={settings.payout.bankName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, payout: { ...settings.payout, bankName: e.target.value } })}
+                          className="border-3 border-foreground bg-background py-5 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
+                        />
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Account Number
-                        </p>
-                        <p className="font-bold">••••••4567</p>
+                      <div className="space-y-2">
+                        <Label htmlFor="account-name" className="font-bold">Account Name</Label>
+                        <Input
+                          id="account-name"
+                          value={settings.payout.accountName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, payout: { ...settings.payout, accountName: e.target.value } })}
+                          className="border-3 border-foreground bg-background py-5 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
+                        />
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Account Name
-                        </p>
-                        <p className="font-bold">Okonkwo Properties Ltd</p>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="account-number" className="font-bold">Account Number</Label>
+                        <Input
+                          id="account-number"
+                          value={settings.payout.accountNumber}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSettings({ ...settings, payout: { ...settings.payout, accountNumber: e.target.value } })}
+                          className="border-3 border-foreground bg-background py-5 shadow-[3px_3px_0px_0px_rgba(26,26,26,1)]"
+                        />
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="mt-4 border-3 border-foreground bg-transparent font-bold"
-                  >
-                    Update Bank Details
-                  </Button>
+                  <div className="mt-6 flex justify-end">
+                    <Button 
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="border-3 border-foreground bg-primary px-6 py-5 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                    >
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      {saving ? "Saving..." : "Update Bank Details"}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="border-t-2 border-foreground pt-6">

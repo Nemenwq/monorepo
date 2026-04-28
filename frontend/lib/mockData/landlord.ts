@@ -135,6 +135,7 @@ export const landlordProperties = [
     tenant: { name: "Ngozi Adekunle", avatar: "NA" },
     views: 234,
     inquiries: 12,
+    verificationStatus: "VERIFIED",
   },
   {
     id: 2,
@@ -148,6 +149,7 @@ export const landlordProperties = [
     tenant: { name: "Chidinma Okoro", avatar: "CO" },
     views: 156,
     inquiries: 8,
+    verificationStatus: "VERIFIED",
   },
   {
     id: 3,
@@ -161,6 +163,7 @@ export const landlordProperties = [
     tenant: null,
     views: 0,
     inquiries: 0,
+    verificationStatus: "PENDING",
   },
   {
     id: 4,
@@ -174,6 +177,7 @@ export const landlordProperties = [
     tenant: { name: "Yusuf Hassan", avatar: "YH" },
     views: 89,
     inquiries: 3,
+    verificationStatus: "REJECTED",
   },
 ]
 

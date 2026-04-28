@@ -1,16 +1,60 @@
 # Shelterflex
 
-Shelterflex is an open-source project exploring **rent now, pay later** workflows with a modern web frontend, a Node.js backend, and Soroban smart contracts.
+Shelterflex is a **Rent Now, Pay Later (RNPL)** platform that enables tenants to secure rental properties with an initial deposit and pay the remaining balance in monthly installments — while allowing landlords to list properties directly, reducing reliance on traditional agents.
 
-**🔥 New Feature: Wallet Authentication** - Users can now connect their Ethereum wallet for secure, self-custody authentication alongside traditional email/OTP login.
+The platform combines three layers:
 
-**🔒 Security Scanning** - Automated security scanning runs on all pull requests to detect vulnerabilities in dependencies, code, and commits. See [Security Scanning](#security-scanning) for details.
+- **Property Marketplace** — Verified listings tenants can browse, filter, and secure
+- **Financing Engine** — Installment-based rent with tiered interest plans (3, 6, or 12 months)
+- **Risk & Credit Assessment** — Tenant screening via income verification, bank statements, and alternative data
+
+### Platform Stakeholders
+
+| Role | Description |
+|---|---|
+| **Tenant** | Browses listings, pays a 20–40% deposit upfront, repays the balance over time |
+| **Landlord** | Lists properties directly, receives guaranteed/partial payments, avoids agent fees |
+| **Whistleblower** | Reports fraudulent or inaccurate listings and earns on-chain rewards — functioning as a decentralized trust layer and organic quality-signal for the platform |
+| **Freelance Inspector** | Physically verifies property conditions and submits structured inspection reports |
+
+Whistleblowers are a first-class participant in the Shelterflex ecosystem. By surfacing fake listings and bad actors, they improve the overall listing quality, protect tenants from fraud, and make Shelterflex more attractive to both sides of the market. In this sense they serve an **advertising function**: every verified listing they help maintain increases platform credibility and drives organic adoption.
+
+**Wallet Authentication** - Users can connect their Stellar wallet (e.g., Freighter) for secure, self-custody authentication alongside traditional email/OTP login.
+
+**Security Scanning** - Automated security scanning runs on all pull requests to detect vulnerabilities in dependencies, code, and commits. See [Security Scanning](#security-scanning) for details.
 
 This repository is organized as **three independent projects**:
 
 - `frontend/` - Next.js (React) web app
 - `backend/` - Node.js (TypeScript + Express) API
-- `contracts/` - Soroban (Rust) smart contracts
+- `contracts/` - Smart contracts (currently prototyped on Soroban/Rust; target chain TBD)
+
+## Business Model
+
+Revenue is generated through:
+
+- **Interest on installments** — tiered rates based on repayment term and tenant risk profile
+- **Service fees** — optional listing fees and per-transaction fees
+- **Premium features** — featured listings, tenant verification badges
+
+### Payment Plan Reference
+
+| Plan | Deposit | Interest | Monthly Payment (on ₦840k balance) |
+|---|---|---|---|
+| 3 months | 30% | 8% | ≈ ₦302,400 |
+| 6 months | 30% | 12% | ≈ ₦156,800 |
+| 12 months | 30% | 15% | ≈ ₦80,500 |
+
+## Risk Management
+
+The platform's viability depends on its risk controls:
+
+- **Tenant screening** — income verification, employment checks, bank statement analysis, alternative data (mobile money, utility payments)
+- **Tenant Rating Card** — portable reputation profile accumulated across tenancies; accessible to landlords during applicant vetting
+- **Landlord protection** — partial upfront payout, optional rent guarantee insurance, escrow smart contracts
+- **Late payment controls** — grace periods, penalties, automated reminders, escalation workflows
+- **Whistleblower rewards** — on-chain incentive program that crowdsources detection of fraudulent listings and bad-faith actors
+- **Staking / liquidity programme** — planned for a future phase to back the financing float
 
 ## Quickstart (Pick One)
 
@@ -158,3 +202,4 @@ npm run scan
 ```
 
 See [`security-scan/README.md`](security-scan/README.md) for detailed documentation.
+# CI check

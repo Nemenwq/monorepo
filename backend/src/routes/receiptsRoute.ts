@@ -4,6 +4,7 @@ import { TxType } from '../outbox/types.js'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { settlementLedgerStore } from '../models/settlementLedgerStore.js'
 
 const VALID_TX_TYPES = new Set(Object.values(TxType))
 
@@ -96,7 +97,27 @@ export function createReceiptsRouter(repo: ReceiptRepository): Router {
     if (!dealId) return next(new AppError(ErrorCode.VALIDATION_ERROR, 400, 'dealId is required'))
     try {
       const receipts = await repo.findByDealId(dealId)
-      res.json({ dealId, receipts, total: receipts.length })
+
+      const ledgerEntries = await settlementLedgerStore.listByDealId(dealId, 'full_payment_incentive')
+      const platform = ledgerEntries.find((e) => e.beneficiaryType === 'platform')
+      const reporter = ledgerEntries.find((e) => e.beneficiaryType === 'reporter')
+      const landlord = ledgerEntries.find((e) => e.beneficiaryType === 'landlord')
+      const splitConfigVersion = platform?.splitConfigVersion ?? reporter?.splitConfigVersion ?? landlord?.splitConfigVersion
+
+      res.json({
+        dealId,
+        receipts,
+        total: receipts.length,
+        payoutBreakdown: splitConfigVersion
+          ? {
+              platformAmountNgn: platform?.amountNgn ?? 0,
+              reporterAmountNgn: reporter?.amountNgn ?? 0,
+              landlordNetAmountNgn: landlord?.amountNgn ?? 0,
+              splitConfigVersion,
+              reporterApplied: !!reporter,
+            }
+          : null,
+      })
     } catch (err) {
       next(err)
     }

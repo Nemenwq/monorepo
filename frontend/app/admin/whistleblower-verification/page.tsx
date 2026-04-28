@@ -1,52 +1,164 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  CheckCircle,
-  XCircle,
   AlertCircle,
+  CheckCircle,
   Eye,
+  Loader2,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { whistleblowerApplications as applications } from "@/lib/mockData";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+
+type ApplicationStatus = "pending" | "approved" | "rejected";
+type FilterStatus = ApplicationStatus | "all";
+
+interface WhistleblowerApplication {
+  applicationId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  linkedinProfile: string;
+  facebookProfile: string;
+  instagramProfile: string;
+  status: ApplicationStatus;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  socialScore: number;
+  greenFlags: string[];
+  redFlags: string[];
+}
+
+function getStatusBgClass(status: ApplicationStatus): string {
+  if (status === "pending") return "bg-accent";
+  if (status === "approved") return "bg-secondary";
+  return "bg-destructive";
+}
 
 export default function WhistleblowerVerificationPanel() {
-  const [selectedApplication, setSelectedApplication] = useState<string | null>(
-    null
-  );
-  const [filterStatus, setFilterStatus] = useState<
-    "pending" | "approved" | "rejected" | "all"
-  >("pending");
+  const [applications, setApplications] = useState<WhistleblowerApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("pending");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const filtered =
-    filterStatus === "all"
-      ? applications
-      : applications.filter((app) => app.status === filterStatus);
-  const selected = selectedApplication
-    ? applications.find((app) => app.id === Number(selectedApplication))
+  const selectedApplication = selectedApplicationId
+    ? applications.find((application) => application.applicationId === selectedApplicationId) ?? null
     : null;
 
-  let selectedStatusBgClass = "";
-  if (selected) {
-    if (selected.status === "pending") {
-      selectedStatusBgClass = "bg-accent";
-    } else if (selected.status === "approved") {
-      selectedStatusBgClass = "bg-secondary";
-    } else {
-      selectedStatusBgClass = "bg-destructive";
+  const fetchApplications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const statusParam = filterStatus === "all" ? "" : `?status=${filterStatus}`;
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/whistleblower-applications${statusParam}`
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Failed to fetch applications");
+      }
+
+      const nextApplications = data.applications as WhistleblowerApplication[];
+      setApplications(nextApplications);
+      setSelectedApplicationId((current) => {
+        if (current && nextApplications.some((application) => application.applicationId === current)) {
+          return current;
+        }
+        return nextApplications[0]?.applicationId ?? null;
+      });
+    } catch (fetchError) {
+      setApplications([]);
+      setSelectedApplicationId(null);
+      setError(
+        fetchError instanceof Error ? fetchError.message : "Failed to load applications"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStatus]);
+
+  useEffect(() => {
+    void fetchApplications();
+  }, [fetchApplications]);
+
+  async function handleApprove(applicationId: string) {
+    setActionLoading(applicationId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/whistleblower-applications/${applicationId}/approve`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ reviewedBy: "admin" }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Failed to approve application");
+      }
+
+      await fetchApplications();
+    } catch (approveError) {
+      setError(
+        approveError instanceof Error ? approveError.message : "Failed to approve application"
+      );
+    } finally {
+      setActionLoading(null);
     }
   }
 
-  const handleApprove = (id: number) => {
-    // In real app, this would call an API
-    console.log("Approved:", id);
-  };
+  async function handleReject(applicationId: string) {
+    const reason = window.prompt("Enter rejection reason:");
+    if (!reason) {
+      return;
+    }
 
-  const handleReject = (id: number) => {
-    // In real app, this would call an API
-    console.log("Rejected:", id);
-  };
+    setActionLoading(applicationId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/whistleblower-applications/${applicationId}/reject`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ reviewedBy: "admin", reason }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Failed to reject application");
+      }
+
+      await fetchApplications();
+    } catch (rejectError) {
+      setError(
+        rejectError instanceof Error ? rejectError.message : "Failed to reject application"
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,25 +167,22 @@ export default function WhistleblowerVerificationPanel() {
           <h1 className="text-2xl font-black md:text-3xl">
             Whistleblower Verification Panel
           </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Review and approve/reject whistleblower applications
+          <p className="mt-2 text-sm text-muted-foreground">
+            Review and approve or reject whistleblower applications
           </p>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Application List */}
           <div className="lg:col-span-1">
             <div className="mb-4 border-3 border-foreground bg-card p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
-              <p className="text-sm font-bold mb-3 block">
-                Filter by Status
-              </p>
+              <p className="mb-3 block text-sm font-bold">Filter by Status</p>
               <div className="grid grid-cols-2 gap-2">
                 {["pending", "approved", "rejected", "all"].map((status) => (
                   <button
                     key={status}
-                    onClick={() => setFilterStatus(status as any)}
+                    onClick={() => setFilterStatus(status as FilterStatus)}
                     className={`border-2 border-foreground p-2 text-xs font-bold transition-all ${
                       filterStatus === status
                         ? "bg-primary shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
@@ -86,114 +195,138 @@ export default function WhistleblowerVerificationPanel() {
               </div>
             </div>
 
-            <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-              {filtered.map((app) => (
-                <Card
-                  key={app.id}
-                  onClick={() => setSelectedApplication(String(app.id))}
-                  className={`border-3 border-foreground p-3 cursor-pointer transition-all ${
-                    selectedApplication === String(app.id)
-                      ? "bg-primary shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-                      : "bg-card hover:bg-muted shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1">
-                      <p className="font-bold text-sm">{app.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {app.address}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {app.appliedDate}
-                      </p>
+            {error && (
+              <div className="mb-4 border-3 border-destructive bg-red-50 p-4">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button onClick={() => void fetchApplications()} variant="outline" className="mt-2">
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : applications.length === 0 ? (
+              <Card className="border-3 border-foreground p-6 text-center shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
+                <p className="font-bold">No applications found</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Try a different status filter to review historical decisions.
+                </p>
+              </Card>
+            ) : (
+              <div className="max-h-[70vh] space-y-3 overflow-y-auto">
+                {applications.map((application) => (
+                  <Card
+                    key={application.applicationId}
+                    onClick={() => setSelectedApplicationId(application.applicationId)}
+                    className={`cursor-pointer border-3 border-foreground p-3 transition-all ${
+                      selectedApplicationId === application.applicationId
+                        ? "bg-primary shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                        : "bg-card shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] hover:bg-muted"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-bold">{application.fullName}</p>
+                        <p className="text-xs text-muted-foreground">{application.address}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(application.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {application.status === "pending" && (
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                      )}
+                      {application.status === "approved" && (
+                        <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                      )}
+                      {application.status === "rejected" && (
+                        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      )}
                     </div>
-                    {app.status === "pending" && (
-                      <AlertCircle className="h-4 w-4 shrink-0 text-accent mt-0.5" />
-                    )}
-                    {app.status === "approved" && (
-                      <CheckCircle className="h-4 w-4 shrink-0 text-secondary mt-0.5" />
-                    )}
-                    {app.status === "rejected" && (
-                      <XCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Detail View */}
-          {selected && (
-            <div className="lg:col-span-2">
+          <div className="lg:col-span-2">
+            {selectedApplication ? (
               <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
-                <div className="flex items-start justify-between mb-6">
+                <div className="mb-6 flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-black">{selected.name}</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {selected.address}
+                    <h2 className="text-2xl font-black">{selectedApplication.fullName}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {selectedApplication.address}
                     </p>
                   </div>
                   <div
-                    className={`px-3 py-1 border-2 border-foreground font-bold text-sm ${
-                      selectedStatusBgClass
-                    }`}
+                    className={`border-2 border-foreground px-3 py-1 text-sm font-bold ${getStatusBgClass(
+                      selectedApplication.status
+                    )}`}
                   >
-                    {selected.status.toUpperCase()}
+                    {selectedApplication.status.toUpperCase()}
                   </div>
                 </div>
 
-                {/* Contact Info */}
-                <div className="border-3 border-foreground p-4 mb-6 bg-muted">
-                  <p className="text-xs font-bold text-muted-foreground mb-3">
-                    CONTACT INFO
-                  </p>
+                <div className="mb-6 border-3 border-foreground bg-muted p-4">
+                  <p className="mb-3 text-xs font-bold text-muted-foreground">CONTACT INFO</p>
                   <div className="space-y-2 text-sm">
                     <p>
-                      <span className="font-bold">Email:</span> {selected.email}
+                      <span className="font-bold">Email:</span> {selectedApplication.email}
                     </p>
                     <p>
-                      <span className="font-bold">Phone:</span> {selected.phone}
+                      <span className="font-bold">Phone:</span> {selectedApplication.phone}
                     </p>
                     <p>
                       <span className="font-bold">Applied:</span>{" "}
-                      {selected.appliedDate}
+                      {new Date(selectedApplication.createdAt).toLocaleDateString()}
                     </p>
+                    {selectedApplication.reviewedAt && (
+                      <p>
+                        <span className="font-bold">Reviewed:</span>{" "}
+                        {new Date(selectedApplication.reviewedAt).toLocaleDateString()}
+                      </p>
+                    )}
+                    {selectedApplication.reviewedBy && (
+                      <p>
+                        <span className="font-bold">Reviewer:</span>{" "}
+                        {selectedApplication.reviewedBy}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {/* Social Score */}
-                <div className="mb-6 p-4 border-3 border-foreground bg-card">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-bold">
-                      SOCIAL VERIFICATION SCORE
-                    </p>
+                <div className="mb-6 border-3 border-foreground bg-card p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-bold">SOCIAL VERIFICATION SCORE</p>
                     <div className="flex h-10 w-10 items-center justify-center border-3 border-foreground bg-secondary font-bold">
-                      {selected.socialScore}
+                      {selectedApplication.socialScore}
                     </div>
                   </div>
-                  <div className="w-full border-2 border-foreground h-2 bg-muted">
+                  <div className="h-2 w-full border-2 border-foreground bg-muted">
                     <div
                       className="h-full bg-primary"
-                      style={{ width: `${selected.socialScore}%` }}
+                      style={{ width: `${selectedApplication.socialScore}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Score above 70 = Generally safe • Below 30 = Likely fraud
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Score above 70 = generally safe • Below 30 = likely fraud
                   </p>
                 </div>
 
-                {/* Green Flags */}
-                {selected.greenFlags.length > 0 && (
+                {selectedApplication.greenFlags.length > 0 && (
                   <div className="mb-6 border-3 border-secondary bg-green-50 p-4">
-                    <p className="font-bold text-sm text-secondary mb-2 flex items-center gap-2">
+                    <p className="mb-2 flex items-center gap-2 text-sm font-bold text-secondary">
                       <CheckCircle className="h-4 w-4" />
                       VERIFIED SIGNALS
                     </p>
                     <ul className="space-y-2">
-                      {selected.greenFlags.map((flag) => (
+                      {selectedApplication.greenFlags.map((flag) => (
                         <li
-                          key={`${selected.id}-green-${flag}`}
-                          className="text-xs text-secondary flex gap-2"
+                          key={`green-${flag}`}
+                          className="flex gap-2 text-xs text-secondary"
                         >
                           <span className="mt-0.5">✓</span>
                           <span>{flag}</span>
@@ -203,19 +336,15 @@ export default function WhistleblowerVerificationPanel() {
                   </div>
                 )}
 
-                {/* Red Flags */}
-                {selected.redFlags.length > 0 && (
+                {selectedApplication.redFlags.length > 0 && (
                   <div className="mb-6 border-3 border-destructive bg-red-50 p-4">
-                    <p className="font-bold text-sm text-destructive mb-2 flex items-center gap-2">
+                    <p className="mb-2 flex items-center gap-2 text-sm font-bold text-destructive">
                       <AlertCircle className="h-4 w-4" />
                       RED FLAGS
                     </p>
                     <ul className="space-y-2">
-                      {selected.redFlags.map((flag) => (
-                        <li
-                          key={`${selected.id}-red-${flag}`}
-                          className="text-xs text-destructive flex gap-2"
-                        >
+                      {selectedApplication.redFlags.map((flag) => (
+                        <li key={`red-${flag}`} className="flex gap-2 text-xs text-destructive">
                           <span className="mt-0.5">!</span>
                           <span>{flag}</span>
                         </li>
@@ -224,32 +353,31 @@ export default function WhistleblowerVerificationPanel() {
                   </div>
                 )}
 
-                {/* Social Links */}
                 <div className="mb-6 border-3 border-foreground p-4">
-                  <p className="text-xs font-bold text-muted-foreground mb-3">
+                  <p className="mb-3 text-xs font-bold text-muted-foreground">
                     SOCIAL PROFILES (Click to verify)
                   </p>
                   <div className="space-y-2">
                     <a
-                      href={selected.linkedin}
+                      href={selectedApplication.linkedinProfile}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-bold text-primary hover:underline border-b border-foreground pb-2"
+                      className="flex items-center gap-2 border-b border-foreground pb-2 text-sm font-bold text-primary hover:underline"
                     >
                       <Eye className="h-4 w-4" />
                       LinkedIn Profile
                     </a>
                     <a
-                      href={selected.facebook}
+                      href={selectedApplication.facebookProfile}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-bold text-primary hover:underline border-b border-foreground pb-2"
+                      className="flex items-center gap-2 border-b border-foreground pb-2 text-sm font-bold text-primary hover:underline"
                     >
                       <Eye className="h-4 w-4" />
                       Facebook Profile
                     </a>
                     <a
-                      href={selected.instagram}
+                      href={selectedApplication.instagramProfile}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm font-bold text-primary hover:underline"
@@ -260,28 +388,53 @@ export default function WhistleblowerVerificationPanel() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                {selected.status === "pending" && (
+                {selectedApplication.rejectionReason && (
+                  <div className="mb-6 border-3 border-destructive bg-red-50 p-4">
+                    <p className="text-sm font-bold text-destructive">Rejection reason</p>
+                    <p className="mt-2 text-sm text-destructive/80">
+                      {selectedApplication.rejectionReason}
+                    </p>
+                  </div>
+                )}
+
+                {selectedApplication.status === "pending" && (
                   <div className="flex gap-3">
                     <Button
-                      onClick={() => handleApprove(selected.id)}
-                      className="flex-1 border-3 border-foreground bg-secondary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      onClick={() => void handleApprove(selectedApplication.applicationId)}
+                      disabled={actionLoading === selectedApplication.applicationId}
+                      className="flex-1 border-3 border-foreground bg-secondary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                     >
-                      <CheckCircle className="mr-2 h-5 w-5" />
+                      {actionLoading === selectedApplication.applicationId ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-5 w-5" />
+                      )}
                       Approve
                     </Button>
                     <Button
-                      onClick={() => handleReject(selected.id)}
-                      className="flex-1 border-3 border-destructive bg-transparent px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      onClick={() => void handleReject(selectedApplication.applicationId)}
+                      disabled={actionLoading === selectedApplication.applicationId}
+                      className="flex-1 border-3 border-destructive bg-transparent px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                     >
-                      <XCircle className="mr-2 h-5 w-5" />
+                      {actionLoading === selectedApplication.applicationId ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-2 h-5 w-5" />
+                      )}
                       Reject
                     </Button>
                   </div>
                 )}
               </Card>
-            </div>
-          )}
+            ) : (
+              <Card className="border-3 border-foreground p-10 text-center shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
+                <p className="text-lg font-bold">Select an application</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Choose an applicant from the list to review their identity signals.
+                </p>
+              </Card>
+            )}
+          </div>
         </div>
       </main>
     </div>

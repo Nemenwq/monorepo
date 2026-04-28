@@ -3,7 +3,9 @@ import request from 'supertest'
 import { createApp } from '../app.js'
 import { depositStore } from '../models/depositStore.js'
 import { outboxStore } from '../outbox/store.js'
+import { TxType } from '../outbox/types.js'
 import { quoteStore } from '../models/quoteStore.js'
+import { webhookEventDedupeStore } from '../models/webhookEventDedupeStore.js'
 import { NgnWalletService } from '../services/ngnWalletService.js'
 
 describe('Payments webhook', () => {
@@ -13,6 +15,7 @@ describe('Payments webhook', () => {
     await depositStore.clear()
     await outboxStore.clear()
     await quoteStore.clear()
+    webhookEventDedupeStore.clear()
     delete process.env.WEBHOOK_SIGNATURE_ENABLED
     delete process.env.WEBHOOK_SECRET
     delete process.env.PAYSTACK_SECRET
@@ -25,7 +28,7 @@ describe('Payments webhook', () => {
     await outboxStore.clear()
   })
 
-  it('is idempotent on replay (rail, externalRef)', async () => {
+  it('is idempotent on replay (rail, externalRef) and second delivery is provider-event deduped', async () => {
     const quote = await quoteStore.create({
       userId: 'user-001',
       amountNgn: 160000,
@@ -50,12 +53,22 @@ describe('Payments webhook', () => {
       status: 'confirmed',
     }
 
-    await request(app).post('/api/webhooks/payments/paystack').send(payload).expect(200)
-    await request(app).post('/api/webhooks/payments/paystack').send(payload).expect(200)
+    const r1 = await request(app)
+      .post('/api/webhooks/payments/paystack')
+      .send(payload)
+      .expect(200)
+    expect(r1.body.deduped).toBeFalsy()
+    const r2 = await request(app)
+      .post('/api/webhooks/payments/paystack')
+      .send(payload)
+      .expect(200)
+    expect(r2.body.deduped).toBe(true)
+    expect(r2.body.success).toBe(true)
 
     const items = await outboxStore.listAll(10)
-    expect(items.length).toBe(1)
-    expect(items[0].payload.txType).toBe('stake')
+    const stakeOutbox = items.filter((i) => i.txType === TxType.STAKE)
+    expect(stakeOutbox.length).toBe(1)
+    expect(stakeOutbox[0].payload.txType).toBe('stake')
   })
 
   it('rejects invalid signature when enabled', async () => {

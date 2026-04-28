@@ -16,6 +16,10 @@ import {
   ScheduleItemStatus,
 } from './deal.js'
 import { generateRepaymentSchedule } from '../utils/scheduleGenerator.js'
+import {
+  enqueueSettlementSideEffectsInTransaction,
+  enqueueSettlementSideEffectsMemory,
+} from '../settlement/enqueueSideEffects.js'
 
 export interface StoredDeal extends Deal {
   schedule: ScheduleItem[]
@@ -168,7 +172,17 @@ class InMemoryDealStore implements DealStorePort {
     const scheduleItem = deal.schedule.find((item) => item.period === period)
     if (!scheduleItem) return null
 
+    const oldStatus = scheduleItem.status
     scheduleItem.status = status
+    if (status === ScheduleItemStatus.PAID && oldStatus !== ScheduleItemStatus.PAID) {
+      enqueueSettlementSideEffectsMemory({
+        dealId,
+        period,
+        tenantId: deal.tenantId,
+        landlordId: deal.landlordId,
+        amountNgn: scheduleItem.amountNgn,
+      })
+    }
 
     return {
       ...deal,
@@ -365,15 +379,58 @@ class PostgresDealStore implements DealStorePort {
     status: ScheduleItemStatus,
   ): Promise<DealWithSchedule | null> {
     const pool = await this.pool()
-    const result = await pool.query(
-      `UPDATE tenant_deal_schedules
-       SET status = $3, updated_at = NOW()
-       WHERE deal_id = $1 AND period = $2`,
-      [dealId, period, status],
-    )
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const { rows: cur } = await client.query(
+        `SELECT status, amount_ngn
+         FROM tenant_deal_schedules
+         WHERE deal_id = $1 AND period = $2
+         FOR UPDATE`,
+        [dealId, period],
+      )
+      if (cur.length === 0) {
+        await client.query('ROLLBACK')
+        return null
+      }
+      const row0 = cur[0] as {
+        status: string
+        amount_ngn: string | number
+      }
+      const oldStatus = row0.status
+      const amountNgn = toNumber(row0.amount_ngn)
+      const { rows: trows } = await client.query(
+        `SELECT tenant_id, landlord_id FROM tenant_deals WHERE deal_id = $1 FOR UPDATE`,
+        [dealId],
+      )
+      if (trows.length === 0) {
+        await client.query('ROLLBACK')
+        return null
+      }
+      const t0 = trows[0] as { tenant_id: string; landlord_id: string }
 
-    if (result.rowCount === 0) {
-      return null
+      await client.query(
+        `UPDATE tenant_deal_schedules
+         SET status = $3, updated_at = NOW()
+         WHERE deal_id = $1 AND period = $2`,
+        [dealId, period, status],
+      )
+
+      if (status === ScheduleItemStatus.PAID && oldStatus !== ScheduleItemStatus.PAID) {
+        await enqueueSettlementSideEffectsInTransaction(client, {
+          dealId,
+          period,
+          tenantId: t0.tenant_id,
+          landlordId: t0.landlord_id,
+          amountNgn,
+        })
+      }
+      await client.query('COMMIT')
+    } catch (e) {
+      await client.query('ROLLBACK')
+      throw e
+    } finally {
+      client.release()
     }
 
     return this.fetchDealWithSchedule(pool, dealId)

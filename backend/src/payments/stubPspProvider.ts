@@ -49,17 +49,25 @@ export class StubPspProvider implements PaymentProvider {
       externalRef?: string
       status?: string
       providerStatus?: string
+      /** Optional — tests can set to simulate distinct PSP deliveries for the same ref. */
+      providerEventId?: string
     }
 
     if (!body.externalRefSource || !body.externalRef || !body.status) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 400, 'Invalid webhook payload')
     }
 
+    const providerEventId =
+      body.providerEventId != null && String(body.providerEventId).trim() !== ''
+        ? String(body.providerEventId)
+        : `stub:${body.externalRef}:${body.status}`
+
     return {
       externalRefSource: body.externalRefSource,
       externalRef: body.externalRef,
       rawStatus: body.status,
       providerStatus: body.providerStatus,
+      providerEventId,
     }
   }
 

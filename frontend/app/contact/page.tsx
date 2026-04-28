@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import Link from 'next/link'
-import { ArrowLeft, Send, Mail, Phone, MapPin } from 'lucide-react'
+import { ArrowLeft, Send, Mail, Phone, MapPin, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { submitSupportMessage } from '@/lib/api/support'
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -16,17 +17,50 @@ export default function ContactPage() {
     message: '',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
   }
 
-  const handleSubmit: React.ComponentProps<'form'>['onSubmit'] = (e) => {
+  const handleSubmit: React.ComponentProps<'form'>['onSubmit'] = async (e) => {
     e.preventDefault()
-    setSubmitted(true)
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
-    setTimeout(() => setSubmitted(false), 5000)
+    setLoading(true)
+    setError(null)
+    setFieldErrors({})
+
+    try {
+      await submitSupportMessage(formData)
+      setSubmitted(true)
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
+      setTimeout(() => setSubmitted(false), 5000)
+    } catch (err) {
+      if (err instanceof Error) {
+        // Check if it's an ApiError with field validation errors
+        const apiError = err as any
+        if (apiError.details) {
+          setFieldErrors(apiError.details as Record<string, string>)
+          setError('Please fix the errors below and try again.')
+        } else {
+          setError(err.message || 'Failed to send message. Please try again.')
+        }
+      } else {
+        setError('Failed to send message. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -59,6 +93,18 @@ export default function ContactPage() {
                   </div>
                 )}
 
+                {error && (
+                  <div className="mb-6 border-3 border-destructive bg-destructive/10 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-destructive">Failed to Send Message</p>
+                        <p className="text-sm text-destructive/80 mt-1">{error}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                   <div>
                     <label htmlFor="contact-name" className="mb-2 block text-sm font-bold">Name</label>
@@ -70,8 +116,11 @@ export default function ContactPage() {
                       onChange={handleChange}
                       placeholder="Your name"
                       required
-                      className="border-3 border-foreground py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      className={`border-3 py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] ${fieldErrors.name ? 'border-destructive' : 'border-foreground'}`}
                     />
+                    {fieldErrors.name && (
+                      <p className="text-xs text-destructive mt-1">{fieldErrors.name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -84,8 +133,11 @@ export default function ContactPage() {
                       onChange={handleChange}
                       placeholder="your@email.com"
                       required
-                      className="border-3 border-foreground py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      className={`border-3 py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] ${fieldErrors.email ? 'border-destructive' : 'border-foreground'}`}
                     />
+                    {fieldErrors.email && (
+                      <p className="text-xs text-destructive mt-1">{fieldErrors.email}</p>
+                    )}
                   </div>
 
                   <div>
@@ -97,8 +149,11 @@ export default function ContactPage() {
                       value={formData.phone}
                       onChange={handleChange}
                       placeholder="+234 (0) 123 456 7890"
-                      className="border-3 border-foreground py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      className={`border-3 py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] ${fieldErrors.phone ? 'border-destructive' : 'border-foreground'}`}
                     />
+                    {fieldErrors.phone && (
+                      <p className="text-xs text-destructive mt-1">{fieldErrors.phone}</p>
+                    )}
                   </div>
 
                   <div>
@@ -111,8 +166,11 @@ export default function ContactPage() {
                       onChange={handleChange}
                       placeholder="What is this about?"
                       required
-                      className="border-3 border-foreground py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      className={`border-3 py-3 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] ${fieldErrors.subject ? 'border-destructive' : 'border-foreground'}`}
                     />
+                    {fieldErrors.subject && (
+                      <p className="text-xs text-destructive mt-1">{fieldErrors.subject}</p>
+                    )}
                   </div>
 
                   <div>
@@ -125,16 +183,29 @@ export default function ContactPage() {
                       placeholder="Tell us more..."
                       required
                       rows={5}
-                      className="w-full border-3 border-foreground p-3 font-mono text-sm shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      className={`w-full border-3 p-3 font-mono text-sm shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] ${fieldErrors.message ? 'border-destructive' : 'border-foreground'}`}
                     />
+                    {fieldErrors.message && (
+                      <p className="text-xs text-destructive mt-1">{fieldErrors.message}</p>
+                    )}
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full border-3 border-foreground bg-primary py-4 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                    disabled={loading}
+                    className="w-full border-3 border-foreground bg-primary py-4 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
                   >
-                    <Send className="mr-2 h-4 w-4" />
-                    Send Message
+                    {loading ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin border-2 border-foreground border-t-transparent rounded-full" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send Message
+                      </>
+                    )}
                   </Button>
                 </form>
               </Card>
@@ -152,8 +223,8 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-bold">Email</h3>
-                      <p className="text-sm text-muted-foreground">support@sheltaflex.com</p>
-                      <p className="text-sm text-muted-foreground">info@sheltaflex.com</p>
+                      <p className="text-sm text-muted-foreground">support@shelterflex.com</p>
+                      <p className="text-sm text-muted-foreground">info@shelterflex.com</p>
                     </div>
                   </div>
 

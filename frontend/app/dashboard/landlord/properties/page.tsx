@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -18,21 +18,36 @@ import {
   Eye,
   Clock,
   Search,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { landlordProperties as myProperties } from "@/lib/mockData";
+import { landlordProperties } from "@/lib/mockData";
 
 export default function LandlordPropertiesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 350);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const propertiesUnavailable = !Array.isArray(landlordProperties);
+
+  const myProperties = useMemo(
+    () => (Array.isArray(landlordProperties) ? landlordProperties : []),
+    [],
+  );
 
   const filteredProperties = myProperties.filter((property) => {
     const matchesSearch =
@@ -138,32 +153,51 @@ export default function LandlordPropertiesPage() {
 
           {/* Properties Grid */}
           <div className="grid gap-6">
-            {filteredProperties.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <Card
+                  key={`property-loading-${index}`}
+                  className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                >
+                  <Skeleton className="mb-4 h-6 w-56" />
+                  <Skeleton className="mb-2 h-4 w-40" />
+                  <Skeleton className="h-32 w-full" />
+                </Card>
+              ))
+            ) : propertiesUnavailable ? (
+              <Card className="border-3 border-foreground bg-destructive/10 p-12 text-center shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
+                <AlertTriangle className="mx-auto h-16 w-16 text-destructive" />
+                <h3 className="mt-4 text-xl font-bold">Properties unavailable</h3>
+                <p className="mt-2 text-muted-foreground">
+                  We couldn&apos;t load property records at the moment.
+                </p>
+              </Card>
+            ) : filteredProperties.length === 0 ? (
               <Card className="border-3 border-foreground p-12 text-center shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
                 <Building2 className="mx-auto h-16 w-16 text-muted-foreground" />
                 <h3 className="mt-4 text-xl font-bold">No Properties Found</h3>
                 <p className="mt-2 text-muted-foreground">
                   {searchQuery
                     ? "Try a different search term"
-                    : "Start by adding your first property"}
+                    : "This is an empty non-loading state. Start by adding your first property."}
                 </p>
               </Card>
             ) : (
               filteredProperties.map((property) => {
-                let statusBadgeClass = "bg-muted"
-                let statusLabel = "Inactive"
+                let statusBadgeClass = "bg-muted";
+                let statusLabel = "Inactive";
 
                 switch (property.status) {
                   case "active":
-                    statusBadgeClass = "bg-secondary"
-                    statusLabel = "Active"
-                    break
+                    statusBadgeClass = "bg-secondary";
+                    statusLabel = "Active";
+                    break;
                   case "pending":
-                    statusBadgeClass = "bg-accent"
-                    statusLabel = "Pending"
-                    break
+                    statusBadgeClass = "bg-accent";
+                    statusLabel = "Pending";
+                    break;
                   default:
-                    break
+                    break;
                 }
 
                 return (
@@ -183,97 +217,97 @@ export default function LandlordPropertiesPage() {
                         </div>
                       </div>
 
-                    <div className="flex flex-1 flex-col p-6">
-                      <div className="mb-4 flex items-start justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold text-foreground">
-                            {property.title}
-                          </h3>
-                          <p className="mt-1 flex items-center gap-1 text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            {property.location}
-                          </p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="border-3 border-foreground bg-transparent"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="border-3 border-foreground">
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" /> Edit Property
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" /> View Listing
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      <div className="mb-4 flex gap-6">
-                        <span className="flex items-center gap-1 text-sm font-medium">
-                          <Bed className="h-4 w-4" /> {property.beds} Beds
-                        </span>
-                        <span className="flex items-center gap-1 text-sm font-medium">
-                          <Bath className="h-4 w-4" /> {property.baths} Baths
-                        </span>
-                        <span className="flex items-center gap-1 text-sm font-medium">
-                          <Square className="h-4 w-4" /> {property.sqm} sqm
-                        </span>
-                      </div>
-
-                      <div className="mt-auto flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                          <p className="text-2xl font-bold text-primary">
-                            ₦{property.price.toLocaleString()}
-                            <span className="text-sm font-normal text-muted-foreground">
-                              /year
-                            </span>
-                          </p>
-                          <div className="flex gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Eye className="h-4 w-4" /> {property.views} views
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="h-4 w-4" />{" "}
-                              {property.inquiries} inquiries
-                            </span>
+                      <div className="flex flex-1 flex-col p-6">
+                        <div className="mb-4 flex items-start justify-between">
+                          <div>
+                            <h3 className="text-xl font-bold text-foreground">
+                              {property.title}
+                            </h3>
+                            <p className="mt-1 flex items-center gap-1 text-muted-foreground">
+                              <MapPin className="h-4 w-4" />
+                              {property.location}
+                            </p>
                           </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="border-3 border-foreground bg-transparent"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="border-3 border-foreground">
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" /> Edit Property
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Eye className="mr-2 h-4 w-4" /> View Listing
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
 
-                        {property.tenant ? (
-                          <div className="flex items-center gap-3 border-3 border-foreground bg-secondary/30 px-4 py-2">
-                            <div className="flex h-10 w-10 items-center justify-center border-2 border-foreground bg-secondary font-bold">
-                              {property.tenant.avatar}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold">
-                                {property.tenant.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Current Tenant
-                              </p>
+                        <div className="mb-4 flex gap-6">
+                          <span className="flex items-center gap-1 text-sm font-medium">
+                            <Bed className="h-4 w-4" /> {property.beds} Beds
+                          </span>
+                          <span className="flex items-center gap-1 text-sm font-medium">
+                            <Bath className="h-4 w-4" /> {property.baths} Baths
+                          </span>
+                          <span className="flex items-center gap-1 text-sm font-medium">
+                            <Square className="h-4 w-4" /> {property.sqm} sqm
+                          </span>
+                        </div>
+
+                        <div className="mt-auto flex items-center justify-between">
+                          <div className="flex items-center gap-6">
+                            <p className="text-2xl font-bold text-primary">
+                              ₦{property.price.toLocaleString()}
+                              <span className="text-sm font-normal text-muted-foreground">
+                                /year
+                              </span>
+                            </p>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Eye className="h-4 w-4" /> {property.views} views
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MessageSquare className="h-4 w-4" />{" "}
+                                {property.inquiries} inquiries
+                              </span>
                             </div>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-2 border-3 border-dashed border-foreground bg-accent/30 px-4 py-2">
-                            <Clock className="h-5 w-5" />
-                            <span className="font-medium">Vacant</span>
-                          </div>
-                        )}
+
+                          {property.tenant ? (
+                            <div className="flex items-center gap-3 border-3 border-foreground bg-secondary/30 px-4 py-2">
+                              <div className="flex h-10 w-10 items-center justify-center border-2 border-foreground bg-secondary font-bold">
+                                {property.tenant.avatar}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold">
+                                  {property.tenant.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Current Tenant
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 border-3 border-dashed border-foreground bg-accent/30 px-4 py-2">
+                              <Clock className="h-5 w-5" />
+                              <span className="font-medium">Vacant</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
                     </div>
                   </Card>
-                )
+                );
               })
             )}
           </div>

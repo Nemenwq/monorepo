@@ -4,10 +4,12 @@
 
 The Whistleblower Earnings Dashboard feature provides whistleblowers with visibility into their earnings history and payout status. The system exposes a backend API endpoint that returns aggregated earnings totals and a detailed history of individual rewards, enabling whistleblowers to track pending and completed payouts.
 
+Whistleblowers are a **first-class platform participant** on Shelterflex. In addition to their trust-and-safety role (reporting fraudulent or misrepresented listings), they function as **organic advertisers**: by maintaining a high-quality, verified listing inventory they increase tenant confidence and drive platform adoption. The earnings dashboard is therefore not just a utility — it is a retention and incentive surface for a key stakeholder group.
+
 ## Glossary
 
 - **Earnings_API**: The backend API endpoint that provides earnings data for whistleblowers
-- **Whistleblower**: A user who reports listings and earns rewards
+- **Whistleblower**: A user who reports listings and earns rewards; also functions as an organic advertiser by improving listing quality and platform trust
 - **Reward**: A monetary compensation earned by a whistleblower for reporting a listing
 - **Payout_Status**: The current state of a reward payment (pending, payable, or paid)
 - **NGN**: Nigerian Naira currency used for display purposes

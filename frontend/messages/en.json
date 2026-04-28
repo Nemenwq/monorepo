@@ -91,6 +91,26 @@
     "thisWeek": "This Week",
     "thisMonth": "This Month"
   },
+  "payment": {
+    "fullPayment": "Full payment",
+    "reviewDistribution": "Review how your payment will be distributed before confirming.",
+    "rewardDistribution": "Reward distribution",
+    "platformFee": "Platform fee",
+    "platformFeeSubLabel": "Covers platform operations",
+    "reporterReward": "Reporter reward",
+    "reporterRewardSubLabel": "Paid to the property reporter",
+    "noReporter": "No reporter on this listing",
+    "landlordPayout": "Landlord payout",
+    "totalCharged": "Total charged",
+    "confirmPayment": "Confirm payment",
+    "processing": "Processing…",
+    "receipt": "Payment receipt",
+    "reference": "Reference",
+    "paymentConfirmed": "Payment confirmed",
+    "loadingDetails": "Loading payment details…",
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Try again"
+  },
   "errors": {
     "generic": "Something went wrong",
     "networkError": "Network error. Please check your connection.",

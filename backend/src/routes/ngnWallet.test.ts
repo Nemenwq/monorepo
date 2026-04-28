@@ -5,6 +5,7 @@ import request from 'supertest'
 import express from 'express'
 import { sessionStore, userStore } from '../models/authStore.js'
 import { ngnDepositStore } from '../models/ngnDepositStore.js'
+import { _resetDurableIdempotencyMemory } from '../services/durableIdempotencyService.js'
 
 describe('NGN Wallet Routes', () => {
   let ngnWalletService: NgnWalletService
@@ -13,6 +14,7 @@ describe('NGN Wallet Routes', () => {
   let userId: string
 
   beforeEach(async () => {
+    _resetDurableIdempotencyMemory()
     ngnWalletService = new NgnWalletService()
     
     // Seed an authenticated user session for tests
@@ -131,6 +133,7 @@ describe('NGN Wallet Routes', () => {
       const response = await request(app)
         .post('/api/wallet/ngn/topup/initiate')
         .set('Authorization', `Bearer ${token}`)
+        .set('x-idempotency-key', '9a1b2c3d-4e5f-6789-abcd-ef0123456789')
         .send({ amountNgn: 1500, rail: 'paystack' })
         .expect(201)
 
@@ -156,7 +159,8 @@ describe('NGN Wallet Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('x-idempotency-key', key)
         .send({ amountNgn: 1500, rail: 'paystack' })
-        .expect(200)
+        .expect(201)
+      expect(second.headers['x-idempotent-replay']).toBe('true')
 
       expect(second.body.depositId).toBe(first.body.depositId)
       expect(second.body.externalRef).toBe(first.body.externalRef)

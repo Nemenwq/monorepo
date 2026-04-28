@@ -8,23 +8,49 @@ import { Input } from "@/components/ui/input";
 import { StellarWalletConnect } from "@/components/wallet/StellarWalletConnect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { useRouter } from "next/navigation";
+import { requestOtp } from "@/lib/authApi";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signupSchema, type SignupFormData } from "@/lib/schemas";
+
 export default function SignupPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState<"tenant" | "landlord">("tenant");
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    password: "",
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phone: "",
+      password: "",
+      terms: false,
+    },
   });
 
-  const handleSubmit: React.ComponentProps<'form'>['onSubmit'] = (e) => {
-    e.preventDefault();
-    // Handle signup
-  };
+  const password = watch("password", "");
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const onSubmit = async (data: SignupFormData) => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      await requestOtp(data.email);
+      router.push(`/verify-otp?email=${encodeURIComponent(data.email)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUserTypeKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
@@ -38,7 +64,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-block font-mono text-3xl font-black">
-            SHELTA<span className="text-primary">FLEX</span>
+            SHELTER<span className="text-primary">FLEX</span>
           </Link>
           <p className="mt-2 text-muted-foreground">
             Create your account to get started.
@@ -111,65 +137,80 @@ export default function SignupPage() {
                 </Link>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label htmlFor="full-name" className="mb-2 block font-mono text-sm font-bold">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                <div className="space-y-2">
+                  <label htmlFor="full-name" className="block font-mono text-sm font-bold">
                     Full Name
                   </label>
                   <Input
                     id="full-name"
                     type="text"
-                    value={formData.fullName}
-                    onChange={(e) => updateFormData("fullName", e.target.value)}
+                    {...register("fullName")}
                     placeholder="Enter your full name"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                    required
+                    className={`border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] ${
+                      errors.fullName ? "border-destructive" : ""
+                    }`}
                   />
+                  {errors.fullName && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.fullName.message}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label htmlFor="email" className="mb-2 block font-mono text-sm font-bold">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block font-mono text-sm font-bold">
                     Email Address
                   </label>
                   <Input
                     id="email"
                     type="email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData("email", e.target.value)}
+                    {...register("email")}
                     placeholder="you@email.com"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                    required
+                    className={`border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] ${
+                      errors.email ? "border-destructive" : ""
+                    }`}
                   />
+                  {errors.email && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label htmlFor="phone" className="mb-2 block font-mono text-sm font-bold">
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="block font-mono text-sm font-bold">
                     Phone Number
                   </label>
                   <Input
                     id="phone"
                     type="tel"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData("phone", e.target.value)}
+                    {...register("phone")}
                     placeholder="08X XXX XXXX"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                    required
+                    className={`border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] ${
+                      errors.phone ? "border-destructive" : ""
+                    }`}
                   />
+                  {errors.phone && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.phone.message}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label htmlFor="password" className="mb-2 block font-mono text-sm font-bold">
+                <div className="space-y-2">
+                  <label htmlFor="password" className="block font-mono text-sm font-bold">
                     Password
                   </label>
                   <div className="relative">
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      value={formData.password}
-                      onChange={(e) => updateFormData("password", e.target.value)}
+                      {...register("password")}
                       placeholder="Create a password"
-                      className="border-3 border-foreground py-6 pr-12 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                      required
+                      className={`border-3 border-foreground py-6 pr-12 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] ${
+                        errors.password ? "border-destructive" : ""
+                      }`}
                     />
                     <button
                       type="button"
@@ -185,15 +226,20 @@ export default function SignupPage() {
                       )}
                     </button>
                   </div>
+                  {errors.password && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.password.message}
+                    </p>
+                  )}
                   <div className="mt-2 space-y-1">
                     {[
                       {
                         label: "At least 8 characters",
-                        valid: formData.password.length >= 8,
+                        valid: password.length >= 8,
                       },
                       {
                         label: "Contains a number",
-                        valid: /\d/.test(formData.password),
+                        valid: /\d/.test(password),
                       },
                     ].map((rule) => (
                       <div
@@ -217,12 +263,14 @@ export default function SignupPage() {
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-1">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      className="mt-1 h-5 w-5 border-2 border-foreground accent-primary"
-                      required
+                      {...register("terms")}
+                      className={`mt-1 h-5 w-5 border-2 border-foreground accent-primary ${
+                        errors.terms ? "border-destructive" : ""
+                      }`}
                     />
                     <span className="text-sm text-muted-foreground">
                       I agree to the{" "}
@@ -241,15 +289,21 @@ export default function SignupPage() {
                       </Link>
                     </span>
                   </label>
+                  {errors.terms && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.terms.message}
+                    </p>
+                  )}
                 </div>
 
                 <Button
                   type="submit"
+                  disabled={loading}
                   className={`w-full border-3 border-foreground px-8 py-6 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] ${
                     userType === "tenant" ? "bg-primary" : "bg-secondary"
-                  }`}
+                  } disabled:opacity-60`}
                 >
-                  Create Account
+                  {loading ? "Creating Account..." : "Create Account"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </form>

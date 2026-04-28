@@ -21,12 +21,14 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { DashboardHeader } from "@/components/dashboard-header"
 import {
   tenantPastPayments as pastPayments,
   tenantPaymentSchedule as paymentSchedule,
   tenantWalletData as walletData,
 } from "@/lib/mockData"
+import { getTenantPaymentStatusPresentation } from "@/lib/tenantPaymentStatus"
 
 // Wallet balance - checked first before auto-deduction
 // (mock data lives in lib/mockData)
@@ -183,40 +185,50 @@ export default function TenantPaymentsPage() {
                 <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
                   <h3 className="mb-6 text-lg font-bold">Payment Schedule</h3>
                   <div className="space-y-3">
-                    {paymentSchedule.map((payment) => (
-                      <div
-                        key={`${payment.month}-${payment.dueDate}-${payment.amount}`}
-                        className={`flex items-center justify-between border-3 border-foreground p-4 ${
-                          payment.status === "upcoming" ? "bg-primary/10" : "bg-card"
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center border-2 border-foreground ${
-                              payment.status === "upcoming" ? "bg-primary" : "bg-muted"
-                            }`}
-                          >
-                            {payment.status === "upcoming" ? (
-                              <AlertCircle className="h-5 w-5" />
-                            ) : (
-                              <Clock className="h-5 w-5" />
+                    {paymentSchedule.map((payment) => {
+                      const statusPresentation = getTenantPaymentStatusPresentation(
+                        payment.status,
+                      )
+
+                      return (
+                        <div
+                          key={`${payment.month}-${payment.dueDate}-${payment.amount}`}
+                          className={`flex items-center justify-between border-3 border-foreground p-4 ${
+                            payment.status === "upcoming" ? "bg-primary/10" : "bg-card"
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`flex h-10 w-10 items-center justify-center border-2 border-foreground ${statusPresentation.iconContainerClassName}`}
+                            >
+                              {payment.status === "upcoming" ? (
+                                <AlertCircle className="h-5 w-5" />
+                              ) : (
+                                <Clock className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold">{payment.month}</p>
+                              <p className="text-sm text-muted-foreground">Due {payment.dueDate}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="font-mono font-bold">{formatCurrency(payment.amount)}</span>
+                            <Badge
+                              variant={statusPresentation.variant}
+                              className={statusPresentation.className}
+                            >
+                              {statusPresentation.label}
+                            </Badge>
+                            {payment.status === "upcoming" && (
+                              <Button className="border-2 border-foreground bg-primary font-bold shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
+                                Pay Now
+                              </Button>
                             )}
                           </div>
-                          <div>
-                            <p className="font-bold">{payment.month}</p>
-                            <p className="text-sm text-muted-foreground">Due {payment.dueDate}</p>
-                          </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono font-bold">{formatCurrency(payment.amount)}</span>
-                          {payment.status === "upcoming" && (
-                            <Button className="border-2 border-foreground bg-primary font-bold shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
-                              Pay Now
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </Card>
               </div>
@@ -273,28 +285,41 @@ export default function TenantPaymentsPage() {
                       Your completed payments will appear here.
                     </p>
                   </div>
-                ) : pastPayments.map((payment) => (
-                  <div
-                    key={`${payment.month}-${payment.paidDate}-${payment.amount}`}
-                    className="flex items-center justify-between border-b-2 border-foreground/10 pb-3 last:border-0"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center border-2 border-foreground bg-secondary">
-                        <CheckCircle className="h-5 w-5" />
+                ) : pastPayments.map((payment) => {
+                  const statusPresentation = getTenantPaymentStatusPresentation(
+                    payment.status,
+                  )
+
+                  return (
+                    <div
+                      key={`${payment.month}-${payment.paidDate}-${payment.amount}`}
+                      className="flex items-center justify-between border-b-2 border-foreground/10 pb-3 last:border-0"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center border-2 border-foreground ${statusPresentation.iconContainerClassName}`}
+                        >
+                          <CheckCircle className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold">{payment.month}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Paid on {payment.paidDate} via {payment.method}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold">{payment.month}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Paid on {payment.paidDate} via {payment.method}
-                        </p>
+                      <div className="text-right">
+                        <p className="font-mono font-bold">{formatCurrency(payment.amount)}</p>
+                        <Badge
+                          variant={statusPresentation.variant}
+                          className={statusPresentation.className}
+                        >
+                          {statusPresentation.label}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono font-bold">{formatCurrency(payment.amount)}</p>
-                      <span className="border-2 border-foreground bg-secondary px-2 py-0.5 text-xs font-bold">Paid</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </Card>
           )}

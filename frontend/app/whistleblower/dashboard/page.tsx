@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Button } from "@/components/ui/button";
@@ -16,15 +16,71 @@ import {
   Home,
   Menu,
   X,
+  Loader2,
 } from "lucide-react";
 import {
-  whistleblowerData,
-  whistleblowerEarnings as earnings,
-  whistleblowerListings as listings,
-} from "@/lib/mockData";
+  getWhistleblowerDashboardData,
+  type WhistleblowerDashboardData,
+} from "@/lib/api/whistleblowerDashboard";
+import { whistleblowerData as mockData } from "@/lib/mockData";
 
 export default function WhistleblowerDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<WhistleblowerDashboardData | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const result = await getWhistleblowerDashboardData();
+        setData(result);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to fetch whistleblower data:", err);
+        setError("Failed to connect to live data. Please ensure the backend is running.");
+        // Fallback to mock data in development if needed, but the requirement is "live"
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="font-mono text-lg font-bold">Loading your dashboard...</p>
+      </div>
+    );
+  }
+
+  // Use live data if available, otherwise show error
+  const dashboardData = data?.stats;
+  const listings = data?.listings || [];
+  const earnings = data?.earnings || [];
+
+  if (error && !data) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-4">
+        <div className="max-w-md w-full border-3 border-destructive bg-destructive/10 p-8 text-center shadow-[8px_8px_0px_0px_rgba(26,26,26,1)]">
+          <AlertCircle className="mx-auto h-16 w-16 text-destructive mb-4" />
+          <h1 className="font-mono text-2xl font-black mb-2 text-destructive">Connection Error</h1>
+          <p className="text-destructive/80 mb-6">{error}</p>
+          <Button 
+            className="w-full border-3 border-foreground bg-primary font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+            onClick={() => window.location.reload()}
+          >
+            Retry Connection
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,15 +112,15 @@ export default function WhistleblowerDashboard() {
           <div className="mb-8 border-3 border-foreground bg-secondary p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
             <p className="text-sm font-medium text-foreground">Whistleblower</p>
             <p className="text-lg font-bold text-foreground">
-              {whistleblowerData.name}
+              {mockData.name}
             </p>
             <div className="mt-2 flex items-center gap-1">
               <Star className="h-4 w-4 fill-accent text-accent" />
               <span className="text-sm font-bold">
-                {whistleblowerData.rating}
+                {dashboardData.rating}
               </span>
               <span className="text-xs text-muted-foreground">
-                ({whistleblowerData.reviews} reviews)
+                ({dashboardData.reviews} reviews)
               </span>
             </div>
           </div>
@@ -123,7 +179,7 @@ export default function WhistleblowerDashboard() {
                     Total Earnings
                   </p>
                   <p className="truncate text-xl font-bold text-foreground md:text-3xl">
-                    ₦{whistleblowerData.earnings.toLocaleString()}
+                    ₦{dashboardData.totalEarnings.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -139,7 +195,7 @@ export default function WhistleblowerDashboard() {
                     Reports This Month
                   </p>
                   <p className="truncate text-xl font-bold text-foreground md:text-3xl">
-                    {whistleblowerData.reportsThisMonth}/2
+                    {dashboardData.reportsThisMonth}/{dashboardData.maxReportsPerMonth}
                   </p>
                 </div>
               </div>
@@ -155,7 +211,7 @@ export default function WhistleblowerDashboard() {
                     Active Listings
                   </p>
                   <p className="truncate text-xl font-bold text-foreground md:text-3xl">
-                    {whistleblowerData.activeListings}
+                    {dashboardData.activeListings}
                   </p>
                 </div>
               </div>
@@ -171,7 +227,7 @@ export default function WhistleblowerDashboard() {
                     Rating
                   </p>
                   <p className="truncate text-xl font-bold text-foreground md:text-3xl">
-                    {whistleblowerData.rating}⭐
+                    {dashboardData.rating}⭐
                   </p>
                 </div>
               </div>
@@ -179,7 +235,7 @@ export default function WhistleblowerDashboard() {
           </div>
 
           {/* Report Limit Warning */}
-          {whistleblowerData.reportsThisMonth >= 2 && (
+          {dashboardData.reportsThisMonth >= dashboardData.maxReportsPerMonth && (
             <div className="mb-8 border-3 border-destructive bg-red-100 p-4 rounded-sm">
               <div className="flex gap-2">
                 <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
@@ -188,7 +244,7 @@ export default function WhistleblowerDashboard() {
                     Monthly Limit Reached
                   </p>
                   <p className="text-xs text-destructive/80">
-                    You've reached your 2 apartment limit for this month. Come
+                    You've reached your {dashboardData.maxReportsPerMonth} apartment limit for this month. Come
                     back next month to report more.
                   </p>
                 </div>
@@ -202,7 +258,7 @@ export default function WhistleblowerDashboard() {
               <h2 className="font-mono text-lg font-bold md:text-xl">
                 Your Active Listings
               </h2>
-              {whistleblowerData.reportsThisMonth < 2 && (
+              {dashboardData.reportsThisMonth < dashboardData.maxReportsPerMonth && (
                 <Link href="/whistleblower/report">
                   <Button className="border-3 border-foreground bg-primary font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
                     <Plus className="mr-2 h-4 w-4" />
@@ -213,53 +269,61 @@ export default function WhistleblowerDashboard() {
             </div>
 
             <div className="space-y-4">
-              {listings.map((listing) => (
-                <Card
-                  key={listing.id}
-                  className="border-3 border-foreground p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] md:p-6"
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground md:text-xl">
-                        {listing.address}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        ₦{listing.price.toLocaleString()}/year • {listing.beds}{" "}
-                        bed(s) • {listing.baths} bath(s)
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Posted: {listing.postedDate}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <div className="flex flex-col items-center gap-1 border-l-2 border-foreground pl-4">
-                        <p className="text-xs text-muted-foreground">Views</p>
-                        <p className="text-lg font-bold">{listing.views}</p>
+              {listings.length === 0 ? (
+                <div className="border-3 border-foreground border-dashed p-12 text-center bg-muted/30">
+                  <Home className="mx-auto h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                  <p className="font-mono text-lg font-bold">No active listings</p>
+                  <p className="text-muted-foreground mt-2">Report your first apartment to start earning!</p>
+                </div>
+              ) : (
+                listings.map((listing) => (
+                  <Card
+                    key={listing.id}
+                    className="border-3 border-foreground p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] md:p-6"
+                  >
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground md:text-xl">
+                          {listing.address}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          ₦{listing.price.toLocaleString()}/year • {listing.beds}{" "}
+                          bed(s) • {listing.baths} bath(s)
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Posted: {listing.postedDate}
+                        </p>
                       </div>
 
-                      <div className="flex flex-col items-center gap-1 border-l-2 border-foreground pl-4">
-                        <p className="text-xs text-muted-foreground">Status</p>
-                        <div
-                          className={`text-sm font-bold ${listing.status === "rented" ? "text-secondary" : "text-primary"}`}
-                        >
-                          {listing.status === "rented" ? "✓ Rented" : "Active"}
-                        </div>
-                      </div>
-
-                      {listing.status === "rented" && (
+                      <div className="flex gap-4">
                         <div className="flex flex-col items-center gap-1 border-l-2 border-foreground pl-4">
-                          <p className="text-xs text-muted-foreground">
-                            Earned
-                          </p>
-                          <p className="text-lg font-bold text-primary">
-                            ₦{listing.earnings.toLocaleString()}
-                          </p>
+                          <p className="text-xs text-muted-foreground">Views</p>
+                          <p className="text-lg font-bold">{listing.views}</p>
                         </div>
-                      )}
+
+                        <div className="flex flex-col items-center gap-1 border-l-2 border-foreground pl-4">
+                          <p className="text-xs text-muted-foreground">Status</p>
+                          <div
+                            className={`text-sm font-bold ${listing.status === "rented" ? "text-secondary" : "text-primary"}`}
+                          >
+                            {listing.status === "rented" ? "✓ Rented" : listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
+                          </div>
+                        </div>
+
+                        {listing.status === "rented" && (
+                          <div className="flex flex-col items-center gap-1 border-l-2 border-foreground pl-4">
+                            <p className="text-xs text-muted-foreground">
+                              Earned
+                            </p>
+                            <p className="text-lg font-bold text-primary">
+                              ₦{listing.earnings.toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                )
               ))}
             </div>
           </div>
@@ -270,37 +334,43 @@ export default function WhistleblowerDashboard() {
               Recent Earnings
             </h2>
             <div className="space-y-3">
-              {earnings.map((earning) => (
-                <Card
-                  key={`${earning.listing}-${earning.date}-${earning.amount}-${earning.status}`}
-                  className="border-3 border-foreground p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-                >
-                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm font-bold">{earning.listing}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {earning.date}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-lg font-bold text-primary">
-                        +₦{earning.amount.toLocaleString()}
-                      </p>
-                      <div
-                        className={`flex items-center gap-1 px-3 py-1 border-2 border-foreground text-xs font-bold ${earning.status === "completed" ? "bg-secondary" : "bg-accent"}`}
-                      >
-                        {earning.status === "completed" ? (
-                          <CheckCircle className="h-4 w-4" />
-                        ) : (
-                          <Clock className="h-4 w-4" />
-                        )}
-                        {earning.status === "completed"
-                          ? "Completed"
-                          : "Pending"}
+              {earnings.length === 0 ? (
+                <div className="border-3 border-foreground border-dashed p-8 text-center bg-muted/30">
+                  <p className="text-muted-foreground italic">No recent earnings records found.</p>
+                </div>
+              ) : (
+                earnings.map((earning, idx) => (
+                  <Card
+                    key={`${earning.listing}-${earning.date}-${idx}`}
+                    className="border-3 border-foreground p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                  >
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-sm font-bold">{earning.listing}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {earning.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-lg font-bold text-primary">
+                          +₦{earning.amount.toLocaleString()}
+                        </p>
+                        <div
+                          className={`flex items-center gap-1 px-3 py-1 border-2 border-foreground text-xs font-bold ${earning.status === "completed" ? "bg-secondary" : "bg-accent"}`}
+                        >
+                          {earning.status === "completed" ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <Clock className="h-4 w-4" />
+                          )}
+                          {earning.status === "completed"
+                            ? "Completed"
+                            : "Pending"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                )
               ))}
             </div>
           </div>

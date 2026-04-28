@@ -124,7 +124,7 @@ paths:
                 properties:
                   token:
                     type: string
-                    description: Session token to be used as Authorization: Bearer <token>
+                    description: "Session token to be used as Authorization: Bearer <token>"
                   user:
                     $ref: "#/components/schemas/User"
         default:
@@ -309,6 +309,156 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DealReceiptsResponse'
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/support/messages:
+    post:
+      summary: Submit a public support inquiry
+      description: Accepts and stores a public contact/support message for later handling.
+      operationId: createSupportMessage
+      tags:
+        - Support
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupportMessageRequest"
+      responses:
+        "201":
+          description: Message accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSupportMessageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/whistleblower/ratings:
+    post:
+      summary: Submit a whistleblower rating (tenant)
+      description: Authenticated tenant submits a rating (1-5) and optional review text.
+      operationId: createWhistleblowerRating
+      tags:
+        - Whistleblower
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWhistleblowerRatingRequest"
+      responses:
+        "201":
+          description: Rating created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateWhistleblowerRatingResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/whistleblower/{id}/ratings:
+    get:
+      summary: List whistleblower ratings
+      description: Public list of ratings for profile/dashboard display.
+      operationId: listWhistleblowerRatings
+      tags:
+        - Whistleblower
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Ratings list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, ratings]
+                properties:
+                  success:
+                    type: boolean
+                  ratings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WhistleblowerRating"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/whistleblower/{id}/ratings/aggregate:
+    get:
+      summary: Get whistleblower rating aggregate
+      description: Public aggregate trust metrics (count, average, breakdown).
+      operationId: getWhistleblowerRatingAggregate
+      tags:
+        - Whistleblower
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Aggregate metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, aggregate]
+                properties:
+                  success:
+                    type: boolean
+                  aggregate:
+                    $ref: "#/components/schemas/WhistleblowerRatingAggregate"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/property-issue-reports:
+    post:
+      summary: Submit a property issue report
+      description: Accepts and stores an issue report from the property detail report dialog.
+      operationId: createPropertyIssueReport
+      tags:
+        - Risk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePropertyIssueReportRequest"
+      responses:
+        "201":
+          description: Report accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePropertyIssueReportResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
         default:
           $ref: "#/components/responses/Error"
 
@@ -1273,71 +1423,6 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/staking/quote:
-    post:
-      summary: Create NGN→USDC staking quote
-      description: Returns a priced conversion from NGN to USDC including fees and expiry.
-      operationId: createStakingQuote
-      tags:
-        - Staking
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - amountNgn
-                - paymentRail
-              properties:
-                amountNgn:
-                  type: number
-                  minimum: 1
-                paymentRail:
-                  type: string
-                  enum: [paystack, flutterwave, bank_transfer, manual_admin]
-      responses:
-        '201':
-          description: Quote created
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - quoteId
-                  - amountNgn
-                  - estimatedAmountUsdc
-                  - fxRateNgnPerUsdc
-                  - feesNgn
-                  - expiresAt
-                properties:
-                  quoteId:
-                    type: string
-                    format: uuid
-                  amountNgn:
-                    type: number
-                  estimatedAmountUsdc:
-                    type: string
-                    description: USDC amount with up to 6 decimals
-                  fxRateNgnPerUsdc:
-                    type: number
-                  feesNgn:
-                    type: number
-                  expiresAt:
-                    type: string
-                    format: date-time
-                  disclaimer:
-                    type: string
-                    example: Final USDC may differ slightly due to FX movements
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
   /api/admin/rewards/{rewardId}/mark-paid:
     post:
       summary: Mark reward as paid
@@ -1593,7 +1678,7 @@ paths:
               example:
                 error:
                   code: CONFLICT
-                  message: Listing cannot be approved. Current status: approved
+                  message: "Listing cannot be approved. Current status: approved"
                   details:
                     currentStatus: approved
                     allowedFrom: pending_review
@@ -1677,7 +1762,7 @@ paths:
               example:
                 error:
                   code: CONFLICT
-                  message: Listing cannot be rejected. Current status: rejected
+                  message: "Listing cannot be rejected. Current status: rejected"
                   details:
                     currentStatus: rejected
                     allowedFrom: pending_review
@@ -1877,6 +1962,8 @@ paths:
       operationId: getStakingQuote
       tags:
         - Staking
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -2262,6 +2349,153 @@ components:
             $ref: '#/components/schemas/IndexedReceipt'
         total:
           type: integer
+
+    CreateSupportMessageRequest:
+      type: object
+      required:
+        - name
+        - email
+        - subject
+        - message
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          nullable: true
+          maxLength: 32
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+
+    CreateSupportMessageResponse:
+      type: object
+      required:
+        - success
+        - messageId
+      properties:
+        success:
+          type: boolean
+          example: true
+        messageId:
+          type: string
+          format: uuid
+
+    CreateWhistleblowerRatingRequest:
+      type: object
+      required: [whistleblowerId, dealId, rating]
+      properties:
+        whistleblowerId:
+          type: string
+          minLength: 1
+        dealId:
+          type: string
+          minLength: 1
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        reviewText:
+          type: string
+          nullable: true
+          maxLength: 2000
+
+    WhistleblowerRating:
+      type: object
+      required:
+        - ratingId
+        - whistleblowerId
+        - tenantId
+        - dealId
+        - rating
+        - createdAt
+      properties:
+        ratingId:
+          type: string
+          format: uuid
+        whistleblowerId:
+          type: string
+        tenantId:
+          type: string
+        dealId:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        reviewText:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateWhistleblowerRatingResponse:
+      type: object
+      required: [success, rating]
+      properties:
+        success:
+          type: boolean
+        rating:
+          $ref: "#/components/schemas/WhistleblowerRating"
+
+    WhistleblowerRatingAggregate:
+      type: object
+      required: [whistleblowerId, count, average, breakdown]
+      properties:
+        whistleblowerId:
+          type: string
+        count:
+          type: integer
+        average:
+          type: number
+        breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+
+    CreatePropertyIssueReportRequest:
+      type: object
+      required:
+        - propertyId
+        - reportCategory
+        - reportDetails
+      properties:
+        propertyId:
+          type: string
+          minLength: 1
+        reportCategory:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Category selected in the dialog (frontend field name).
+        reportDetails:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Free-text details entered in the dialog (frontend field name).
+
+    CreatePropertyIssueReportResponse:
+      type: object
+      required: [success, reportId]
+      properties:
+        success:
+          type: boolean
+          example: true
+        reportId:
+          type: string
+          format: uuid
 
     BankAccountDetails:
       type: object
@@ -3270,6 +3504,32 @@ components:
               code: "TOO_MANY_REQUESTS"
               message: "Rate limit exceeded"
 
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Request validation failed"
+              details:
+                fieldErrors:
+                  - field: "email"
+                    message: "Invalid email address"
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Authentication required"
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -3295,3 +3555,5 @@ tags:
     description: Administrative operations including reward payouts
   - name: Staking
     description: Staking operations (stake, unstake, claim rewards)
+  - name: Support
+    description: Public support/contact message intake

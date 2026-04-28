@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.mock('../utils/cache.js', () => ({
+  conversionCache: {
+    get: vi.fn(async () => null),
+    set: vi.fn(async () => {}),
+  },
+}))
+
 import { ConversionService } from './conversionService.js'
-import { StubConversionProvider } from './conversionProvider.js'
+import { HttpConversionProvider, StubConversionProvider } from './conversionProvider.js'
 import { conversionStore } from '../models/conversionStore.js'
 import { outboxStore, TxType } from '../outbox/index.js'
 
@@ -63,5 +71,32 @@ describe('ConversionService conversion receipts', () => {
     const items = await outboxStore.listByDealId('conversion', TxType.CONVERSION)
     expect(items).toHaveLength(1)
     expect(String(items[0].payload.conversionId)).toBe(conversion.conversionId)
+  })
+
+  it('convertDeposit persists HTTP provider rate and providerRef', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ fxRateNgnPerUsdc: 2000, providerRef: 'quote-live-1' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const provider = new HttpConversionProvider({
+      rateUrl: 'https://rates.test/r',
+      timeoutMs: 5_000,
+      minRate: 1,
+      maxRate: 50_000,
+      fetchFn,
+    })
+    const service = new ConversionService(provider, 'onramp')
+
+    const conv = await service.convertDeposit({
+      depositId: 'dep-http-1',
+      userId: 'user-http',
+      amountNgn: 4000,
+    })
+
+    expect(conv.fxRateNgnPerUsdc).toBe(2000)
+    expect(conv.amountUsdc).toBe('2.000000')
+    expect(conv.providerRef).toBe('quote-live-1')
   })
 })

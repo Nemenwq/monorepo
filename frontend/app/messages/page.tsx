@@ -40,12 +40,20 @@ export default function MessagesPage() {
     number | null
   >(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newMessage, setNewMessage] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  
+  const newMessage = selectedConversationId !== null ? drafts[selectedConversationId] || "" : "";
+  const setNewMessage = (val: string) => {
+    if (selectedConversationId !== null) {
+      setDrafts(prev => ({ ...prev, [selectedConversationId]: val }));
+    }
+  };
+
   const [messages, setMessages] = useState<Message[]>(messageThreads[1] ?? []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if messaging feature is enabled (stub - always false for now)
-  const isMessagingEnabled = false;
+  const isMessagingEnabled = true;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -123,41 +131,6 @@ export default function MessagesPage() {
     );
   }
 
-  // Show feature unavailable state if messaging is not enabled
-  if (!isMessagingEnabled) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background pt-20">
-        <div className="mx-auto max-w-md border-3 border-foreground bg-card p-8 shadow-[6px_6px_0px_0px_rgba(26,26,26,1)] text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center border-3 border-foreground bg-muted">
-            <MessageCircle className="h-10 w-10 text-muted-foreground" />
-          </div>
-          <h1 className="font-mono text-2xl font-black mb-3">
-            Messaging Coming Soon
-          </h1>
-          <p className="text-muted-foreground mb-6">
-            We're working hard to bring you direct messaging with landlords and
-            residents. This feature will be available soon!
-          </p>
-          <div className="border-3 border-secondary bg-secondary/10 p-4 mb-6">
-            <p className="text-sm font-bold text-secondary mb-2">
-              What you can do now:
-            </p>
-            <ul className="text-left text-sm text-muted-foreground space-y-1">
-              <li>• Browse available properties</li>
-              <li>• Save your favorite listings</li>
-              <li>• Calculate payment plans</li>
-              <li>• Contact landlords via phone</li>
-            </ul>
-          </div>
-          <Link href="/properties">
-            <Button className="w-full border-3 border-foreground bg-primary py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
-              Browse Properties
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-background pt-20">
@@ -206,6 +179,7 @@ export default function MessagesPage() {
             filteredConversations.map((conv) => (
               <button
                 key={conv.id}
+                aria-label={`Select conversation with ${conv.participant.name}`}
                 onClick={() => handleSelectConversation(conv.id)}
                 className={`w-full border-b-3 border-foreground p-4 text-left transition-colors ${
                   selectedConversationId === conv.id
@@ -263,6 +237,7 @@ export default function MessagesPage() {
               {/* Mobile back button */}
               <button
                 onClick={() => setSelectedConversationId(null)}
+                aria-label="Back to conversations"
                 className="flex h-10 w-10 items-center justify-center border-3 border-foreground bg-muted md:hidden"
               >
                 <ChevronLeft className="h-5 w-5" />

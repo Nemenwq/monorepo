@@ -12,6 +12,8 @@ export interface StakingPositionReponse {
   position: {
     staked: string;
     claimable: string;
+    warming: string;
+    cooling: string;
   }
 }
 

@@ -1,0 +1,19 @@
+apis:
+  main:
+    root: docs/openapi.yml
+
+rules:
+  # Structural integrity — keep as errors
+  no-unresolved-refs: error
+  no-unused-components: warn
+
+  # Security annotations — warn rather than block; endpoints are incrementally documented
+  security-defined: warn
+
+  # Style / informational rules — warn only
+  info-license-strict: warn
+  no-server-example.com: warn
+  no-ambiguous-paths: warn
+  operation-4xx-response: warn
+  operation-description: warn
+  tag-description: warn

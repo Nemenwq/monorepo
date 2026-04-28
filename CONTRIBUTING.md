@@ -1,14 +1,17 @@
 # Contributing to Shelterflex
 
-Thanks for contributing. This repo is intentionally split into **3 projects** (`frontend/`, `backend/`, `contracts/`) so you can contribute to one area without needing to touch the others.
+Thanks for contributing. Shelterflex is a **Rent Now, Pay Later (RNPL)** platform for rental markets — tenants pay a deposit upfront and repay the balance in installments, while landlords list properties directly. The platform relies on smart contracts for payments, escrow, staking, and a whistleblower rewards programme.
 
-If you’re looking for tasks to pick up, start with `docs/ISSUES_CATALOG.md`.
+This repo is intentionally split into **3 projects** (`frontend/`, `backend/`, `contracts/`) so you can contribute to one area without needing to touch the others.
+
+If you're looking for tasks to pick up, start with `docs/ISSUES_CATALOG.md`.
 
 ## Ways to contribute
 
 - Frontend: UI, UX, routing, components, state management, integration with backend and Soroban
 - Backend: API design, validation, auth, persistence, Soroban RPC integration, monitoring
 - Contracts: Soroban smart contracts, tests, deployment scripts, security hardening
+- Whistleblower programme: reward allocation logic, earnings dashboard, reporting flows
 
 ## Ground rules
 

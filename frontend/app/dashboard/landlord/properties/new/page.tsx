@@ -18,6 +18,8 @@ import {
   Plus,
   ImageIcon,
 } from "lucide-react"
+import { landlordApi } from "@/lib/landlordApi"
+import { showErrorToast, showSuccessToast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -86,21 +88,47 @@ export default function NewPropertyPage() {
     sqm: "",
     yearBuilt: "",
   })
+  const [submitting, setSubmitting] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  // Hidden file input ref for the real file picker
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const pendingRoomTypeRef = useRef<string>("")
 
   const handleImageUpload = (roomType: string) => {
-    // In a real app, this would open a file picker
-    // For the mock, we'll simulate adding an image
-    imageIdCounterRef.current += 1
-    const newImage: RoomImage = {
-      id: `${roomType}-${imageIdCounterRef.current}`,
-      roomType,
-      preview: `/placeholder.svg?height=200&width=300&text=${roomType}`,
-    }
-    setImages([...images, newImage])
+    pendingRoomTypeRef.current = roomType
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const roomType = pendingRoomTypeRef.current
+    const newImages: RoomImage[] = Array.from(files).map((file) => {
+      imageIdCounterRef.current += 1
+      return {
+        id: `${roomType}-${imageIdCounterRef.current}`,
+        roomType,
+        preview: URL.createObjectURL(file),
+        file,
+      }
+    })
+
+    setImages((prev) => [...prev, ...newImages])
+    // Reset so the same file can be re-selected if removed and re-added
+    e.target.value = ""
   }
 
   const removeImage = (id: string) => {
-    setImages(images.filter((img) => img.id !== id))
+    setImages((prev) => {
+      const img = prev.find((i) => i.id === id)
+      // Revoke the object URL to free memory
+      if (img?.preview && img.preview.startsWith("blob:")) {
+        URL.revokeObjectURL(img.preview)
+      }
+      return prev.filter((i) => i.id !== id)
+    })
   }
 
   const toggleAmenity = (amenity: string) => {
@@ -109,9 +137,52 @@ export default function NewPropertyPage() {
     )
   }
 
-  const handleSubmit = () => {
-    // In a real app, this would submit to the backend
-    router.push("/dashboard/landlord")
+  const handleSubmit = async () => {
+    try {
+      setFieldErrors({})
+      setSubmitting(true)
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        propertyType: formData.propertyType,
+        location: formData.location,
+        address: formData.address,
+        price: formData.price,
+        beds: formData.beds,
+        baths: formData.baths,
+        sqm: formData.sqm,
+        yearBuilt: formData.yearBuilt,
+        amenities: selectedAmenities,
+        images: images.map(({ id, roomType, preview }) => ({ id, roomType, preview })),
+      }
+
+      await landlordApi.createProperty(payload)
+      showSuccessToast("Property submitted for review.")
+      router.push("/dashboard/landlord")
+    } catch (error: any) {
+      if (error?.details?.fieldErrors) {
+        const errors: Record<string, string> = {}
+        for (const [key, val] of Object.entries(error.details.fieldErrors)) {
+          if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') {
+            errors[key] = val[0]
+          }
+        }
+        if (errors.annualRentNgn) { errors.price = errors.annualRentNgn; delete errors.annualRentNgn; }
+        if (errors.bedrooms) { errors.beds = errors.bedrooms; delete errors.bedrooms; }
+        if (errors.bathrooms) { errors.baths = errors.bathrooms; delete errors.bathrooms; }
+        
+        setFieldErrors(errors)
+        
+        const step1Keys = ['title', 'description', 'propertyType', 'location', 'address', 'price', 'beds', 'baths', 'sqm', 'yearBuilt']
+        const hasStep1Error = Object.keys(errors).some(k => step1Keys.includes(k))
+        if (hasStep1Error) {
+          setStep(1)
+        }
+      }
+      showErrorToast(error, "Failed to create property. Please check your inputs and try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -178,6 +249,7 @@ export default function NewPropertyPage() {
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                 />
+                {fieldErrors.title && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.title}</p>}
               </div>
 
               <div className="grid gap-2">
@@ -192,6 +264,7 @@ export default function NewPropertyPage() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="border-3 border-foreground p-4 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                 />
+                {fieldErrors.description && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.description}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -216,6 +289,7 @@ export default function NewPropertyPage() {
                       <SelectItem value="studio">Studio</SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.propertyType && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.propertyType}</p>}
                 </div>
 
                 <div className="grid gap-2">
@@ -240,6 +314,7 @@ export default function NewPropertyPage() {
                       <SelectItem value="ikeja">Ikeja</SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.location && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.location}</p>}
                 </div>
               </div>
 
@@ -254,6 +329,7 @@ export default function NewPropertyPage() {
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                 />
+                {fieldErrors.address && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.address}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -269,6 +345,7 @@ export default function NewPropertyPage() {
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                   />
+                  {fieldErrors.price && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.price}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="sqm" className="text-base font-bold">
@@ -282,6 +359,7 @@ export default function NewPropertyPage() {
                     onChange={(e) => setFormData({ ...formData, sqm: e.target.value })}
                     className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                   />
+                  {fieldErrors.sqm && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.sqm}</p>}
                 </div>
               </div>
 
@@ -298,6 +376,7 @@ export default function NewPropertyPage() {
                     onChange={(e) => setFormData({ ...formData, beds: e.target.value })}
                     className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                   />
+                  {fieldErrors.beds && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.beds}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="baths" className="text-base font-bold">
@@ -311,6 +390,7 @@ export default function NewPropertyPage() {
                     onChange={(e) => setFormData({ ...formData, baths: e.target.value })}
                     className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                   />
+                  {fieldErrors.baths && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.baths}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="yearBuilt" className="text-base font-bold">
@@ -324,6 +404,7 @@ export default function NewPropertyPage() {
                     onChange={(e) => setFormData({ ...formData, yearBuilt: e.target.value })}
                     className="border-3 border-foreground p-4 text-lg shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                   />
+                  {fieldErrors.yearBuilt && <p className="text-sm font-medium text-destructive mt-1">{fieldErrors.yearBuilt}</p>}
                 </div>
               </div>
             </div>
@@ -346,6 +427,17 @@ export default function NewPropertyPage() {
             <p className="mb-6 text-muted-foreground">
               Add photos of different rooms to help tenants visualize your property
             </p>
+
+            {/* Hidden file input for real file picker */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              aria-label="Upload room photos"
+              onChange={handleFileChange}
+            />
 
             {/* Room Type Selector */}
             <div className="mb-8">
@@ -387,9 +479,18 @@ export default function NewPropertyPage() {
                         key={image.id}
                         className="group relative aspect-video border-3 border-foreground bg-muted"
                       >
-                        <div className="flex h-full items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                        </div>
+                        {image.preview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={image.preview}
+                            alt={`${roomType?.label ?? image.roomType} photo`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        )}
                         <div className="absolute bottom-0 left-0 right-0 border-t-3 border-foreground bg-card/90 px-2 py-1">
                           <span className="text-xs font-medium">{roomType?.label}</span>
                         </div>
@@ -466,9 +567,10 @@ export default function NewPropertyPage() {
               </Button>
               <Button
                 onClick={handleSubmit}
+                disabled={submitting}
                 className="border-3 border-foreground bg-primary px-8 py-6 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
               >
-                Publish Property
+                {submitting ? "Publishing..." : "Publish Property"}
               </Button>
             </div>
           </Card>

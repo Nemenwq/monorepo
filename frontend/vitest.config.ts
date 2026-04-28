@@ -5,7 +5,11 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ['components/**/*.{test,spec}.{ts,tsx}', 'lib/**/*.{test,spec}.{ts,tsx}'],
+    include: [
+      'app/**/*.{test,spec}.{ts,tsx}',
+      'components/**/*.{test,spec}.{ts,tsx}',
+      'lib/**/*.{test,spec}.{ts,tsx}',
+    ],
     exclude: ['e2e/**', 'node_modules/**'],
     environment: 'jsdom',
     globals: true,
@@ -15,6 +19,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
       include: [
+        'app/**/*.{ts,tsx}',
         'components/**/*.{ts,tsx}',
         'lib/**/*.{ts,tsx}',
         'store/**/*.{ts,tsx}',

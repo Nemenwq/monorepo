@@ -66,6 +66,17 @@ describe('appMetrics', () => {
       const after = getMetricsSnapshot().kpis.paymentsInitiated
       expect(after).toBe(before + 2)
     })
+
+    it('increments webhookEventDeduped and idempotencyCacheHit', () => {
+      const s = getMetricsSnapshot().kpis
+      const beforeD = s.webhookEventDeduped
+      const beforeC = s.idempotencyCacheHit
+      recordKPI('webhookEventDeduped')
+      recordKPI('idempotencyCacheHit')
+      const after = getMetricsSnapshot().kpis
+      expect(after.webhookEventDeduped).toBe(beforeD + 1)
+      expect(after.idempotencyCacheHit).toBe(beforeC + 1)
+    })
   })
 
   describe('metricsMiddleware', () => {

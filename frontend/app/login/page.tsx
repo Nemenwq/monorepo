@@ -9,27 +9,35 @@ import { Input } from "@/components/ui/input";
 import { requestOtp } from "@/lib/authApi";
 import { StellarWalletConnect } from "@/components/wallet/StellarWalletConnect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginSchema, type LoginFormData } from "@/lib/schemas";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
     setError(null);
     setLoading(true);
 
     try {
-      await requestOtp(email);
+      await requestOtp(data.email);
       
-      // Preserve returnTo parameter when redirecting to verify-otp
       const verifyOtpUrl = returnTo 
-        ? `/verify-otp?email=${encodeURIComponent(email)}&returnTo=${encodeURIComponent(returnTo)}`
-        : `/verify-otp?email=${encodeURIComponent(email)}`;
+        ? `/verify-otp?email=${encodeURIComponent(data.email)}&returnTo=${encodeURIComponent(returnTo)}`
+        : `/verify-otp?email=${encodeURIComponent(data.email)}`;
       
       router.push(verifyOtpUrl);
     } catch (err) {
@@ -44,7 +52,7 @@ function LoginForm() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-block font-mono text-3xl font-black">
-            SHELTA<span className="text-primary">FLEX</span>
+            SHELTER<span className="text-primary">FLEX</span>
           </Link>
           <p className="mt-2 text-muted-foreground">
             Choose your sign-in method
@@ -72,24 +80,29 @@ function LoginForm() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-2">
                   <label
                     htmlFor="email"
-                    className="mb-2 block font-mono text-sm font-bold"
+                    className="block font-mono text-sm font-bold"
                   >
                     Email Address
                   </label>
                   <Input
                     id="email"
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    {...register("email")}
                     placeholder="you@email.com"
-                    className="border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
-                    required
+                    className={`border-3 border-foreground py-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] ${
+                      errors.email ? "border-destructive" : ""
+                    }`}
                     disabled={loading}
                   />
+                  {errors.email && (
+                    <p className="text-xs font-bold text-destructive">
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
 
                 <Button

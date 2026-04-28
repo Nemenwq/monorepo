@@ -15,6 +15,22 @@ export interface User {
   planQuota: number
 }
 
+export interface LandlordProfile {
+  userId: string
+  phone?: string
+  address?: string
+  companyName?: string
+  bankName?: string
+  accountNumber?: string
+  accountName?: string
+  notificationPreferences: {
+    newInquiries: boolean
+    paymentUpdates: boolean
+    propertyViews: boolean
+    marketingTips: boolean
+  }
+}
+
 export interface OtpChallenge {
   email: string
   otpHash: string
@@ -198,6 +214,82 @@ export class PostgresUserRepository {
     if (user) {
       await userCache.invalidate(`id:${userId}`)
       await userCache.invalidate(`email:${user.email.toLowerCase()}`)
+    }
+  }
+
+  async getLandlordProfile(userId: string): Promise<LandlordProfile | null> {
+    const pool = await this.pool()
+    const { rows } = await pool.query(
+      `SELECT * FROM landlord_profiles WHERE user_id = $1`,
+      [userId]
+    )
+
+    if (rows.length === 0) return null
+
+    const row = rows[0]
+    return {
+      userId: row.user_id,
+      phone: row.phone,
+      address: row.address,
+      companyName: row.company_name,
+      bankName: row.bank_name,
+      accountNumber: row.account_number,
+      accountName: row.account_name,
+      notificationPreferences: row.notification_preferences
+    }
+  }
+
+  async updateLandlordProfile(userId: string, profile: Partial<LandlordProfile>): Promise<void> {
+    const pool = await this.pool()
+    const existing = await this.getLandlordProfile(userId)
+
+    if (!existing) {
+      // Create new profile with defaults
+      const prefs = profile.notificationPreferences || {
+        newInquiries: true,
+        paymentUpdates: true,
+        propertyViews: false,
+        marketingTips: false
+      }
+      await pool.query(
+        `INSERT INTO landlord_profiles (
+          user_id, phone, address, company_name, bank_name, account_number, account_name, notification_preferences
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          userId,
+          profile.phone ?? null,
+          profile.address ?? null,
+          profile.companyName ?? null,
+          profile.bankName ?? null,
+          profile.accountNumber ?? null,
+          profile.accountName ?? null,
+          JSON.stringify(prefs)
+        ]
+      )
+    } else {
+      // Update existing
+      const fields: string[] = []
+      const values: any[] = []
+      let i = 1
+
+      if (profile.phone !== undefined) { fields.push(`phone = $${i++}`); values.push(profile.phone) }
+      if (profile.address !== undefined) { fields.push(`address = $${i++}`); values.push(profile.address) }
+      if (profile.companyName !== undefined) { fields.push(`company_name = $${i++}`); values.push(profile.companyName) }
+      if (profile.bankName !== undefined) { fields.push(`bank_name = $${i++}`); values.push(profile.bankName) }
+      if (profile.accountNumber !== undefined) { fields.push(`account_number = $${i++}`); values.push(profile.accountNumber) }
+      if (profile.accountName !== undefined) { fields.push(`account_name = $${i++}`); values.push(profile.accountName) }
+      if (profile.notificationPreferences !== undefined) { 
+        fields.push(`notification_preferences = $${i++}`); 
+        values.push(JSON.stringify(profile.notificationPreferences)) 
+      }
+
+      if (fields.length > 0) {
+        values.push(userId)
+        await pool.query(
+          `UPDATE landlord_profiles SET ${fields.join(', ')}, updated_at = NOW() WHERE user_id = $${i}`,
+          values
+        )
+      }
     }
   }
 }

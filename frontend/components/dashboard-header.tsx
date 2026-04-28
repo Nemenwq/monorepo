@@ -1,12 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { Home, Building2, Calculator, Menu, X } from "lucide-react"
+import { Home, Building2, Calculator, Menu, X, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { useNotificationUnread } from "@/hooks/use-notification-unread"
 
 export function DashboardHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { unread } = useNotificationUnread()
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b-3 border-foreground bg-card">
@@ -16,11 +18,26 @@ export function DashboardHeader() {
           <div className="flex h-10 w-10 items-center justify-center border-3 border-foreground bg-primary shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]">
             <Building2 className="h-6 w-6" />
           </div>
-          <span className="font-mono text-xl font-black">SHELTAFLEX</span>
+          <span className="font-mono text-xl font-black">SHELTERFLEX</span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-4">
+          <Link href="/dashboard/notifications" className="relative">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-2 border-foreground bg-transparent font-bold shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+              aria-label="Notifications"
+            >
+              <Bell className="h-4 w-4" />
+              {unread > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </Button>
+          </Link>
           <Link href="/">
             <Button
               variant="outline"
