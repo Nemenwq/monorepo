@@ -340,8 +340,6 @@ export function createApp() {
     next(new AppError(ErrorCode.NOT_FOUND, 404, `Route ${_req.originalUrl} not found`))
   })
 
-
-
   // Error handler (must be last)
   app.use(errorHandler)
 
