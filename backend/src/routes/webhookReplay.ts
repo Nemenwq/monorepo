@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { AppError, ErrorCode } from '../errors/index.js'
 import { authenticateToken, type AuthenticatedRequest } from '../middleware/auth.js'
 import { extractAuditContext } from '../utils/auditLogger.js'
-import { getWebhookReplayService } from '../webhookReplay/index.js'
+import { getWebhookReplayService, ActorType } from '../webhookReplay/index.js'
 import { ReplayRequest } from '../webhookReplay/types.js'
 import { env } from '../schemas/env.js'
 
@@ -86,7 +86,7 @@ router.post(
         endTime: validated.endTime ? new Date(validated.endTime) : undefined,
       }
 
-      const context = extractAuditContext(req)
+      const context = extractAuditContext(req, ActorType.ADMIN)
       const service = getWebhookReplayService()
       const attempt = await service.executeReplay(replayRequest, context)
 
