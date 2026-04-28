@@ -104,6 +104,8 @@ import { createNotificationsRouter } from "./routes/notifications.js";
 import { createSettlementAdminRouter } from "./routes/settlementAdmin.js";
 import { SettlementOutboxWorker } from "./settlement/worker.js";
 import { createLedgerReconciliationRouter } from "./routes/ledgerReconciliation.js";
+import { createAdminTransactionLedgerRouter } from "./routes/adminTransactionLedger.js";
+import { createAdminSessionsRouter } from "./routes/adminSessions.js";
 import { durableIdempotencyService } from "./services/durableIdempotencyService.js";
 import { createSupportRouter } from "./routes/support.js";
 import { createPropertyIssueReportsRouter } from "./routes/propertyIssueReports.js";
@@ -456,6 +458,8 @@ export function createApp() {
     createAdminReconciliationRouter(ngnWalletService),
   );
   app.use("/api/admin/ledger-reconciliation", createLedgerReconciliationRouter());
+  app.use("/api/admin/transaction-ledger", createAdminTransactionLedgerRouter());
+  app.use("/api/admin/sessions", createAdminSessionsRouter());
   app.use("/api/admin/secrets", createSecretRotationRouter());
   app.use("/api/admin/jobs", createAdminJobsRouter());
   app.use("/api/admin", createAdminAuditRouter());
