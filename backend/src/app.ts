@@ -48,6 +48,7 @@ import { NgnWalletService } from "./services/ngnWalletService.js";
 import { createAdminReconciliationRouter } from "./routes/adminReconciliation.js";
 import { createGasMetricsRouter } from "./routes/gas-metrics.js";
 import { createAdminAuditRouter } from "./routes/adminAudit.js";
+import { createAdminUnderwritingRouter } from "./routes/adminUnderwriting.js";
 import {
   InMemoryWalletStore,
   PostgresWalletStore,
@@ -110,6 +111,10 @@ import {
   PostgresTenantApplicationStore,
   initTenantApplicationStore,
 } from "./models/tenantApplicationStore.js";
+import {
+  PostgresUnderwritingDecisionTraceStore,
+  initUnderwritingDecisionTraceStore,
+} from "./models/underwritingDecisionTraceStore.js";
 import {
   PostgresPartnerLandlordApplicationStore,
   initPartnerLandlordApplicationStore,
@@ -310,6 +315,9 @@ export function createApp() {
     initWhistleblowerSignupApplicationStore(
       new PostgresWhistleblowerSignupApplicationStore(),
     );
+    initUnderwritingDecisionTraceStore(
+      new PostgresUnderwritingDecisionTraceStore(),
+    );
   }
 
   // Indexer
@@ -460,6 +468,8 @@ export function createApp() {
   app.use("/api/whistleblower", createWhistleblowerRouter(earningsService));
   app.use("/api/whistleblower-applications", createWhistleblowerApplicationsRouter());
   app.use("/api/admin/whistleblower-applications", createAdminWhistleblowerApplicationsRouter());
+  app.use("/api/admin/underwriting", createAdminUnderwritingRouter());
+  app.use("/api/admin", createSettlementAdminRouter());
   app.use(
     "/api/staking",
     createStakingRouter(
