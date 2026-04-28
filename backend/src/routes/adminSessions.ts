@@ -7,7 +7,7 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express'
-import { createHash } from 'node:crypto'
+import { sha256 } from '../utils/sha256.js'
 import { z } from 'zod'
 import { AppError } from '../errors/AppError.js'
 import { ErrorCode } from '../errors/errorCodes.js'
@@ -34,13 +34,13 @@ function requireAdmin(req: Request): void {
 
 function hashIp(ip: string | undefined): string | null {
   if (!ip) return null
-  return createHash('sha256').update(ip).digest('hex').slice(0, 16)
+  return sha256(ip).slice(0, 16)
 }
 
 function deviceFingerprint(req: Request): string {
   const ua = req.get('User-Agent') ?? ''
   const accept = req.get('Accept-Language') ?? ''
-  return createHash('sha256').update(`${ua}|${accept}`).digest('hex').slice(0, 32)
+  return sha256(`${ua}|${accept}`).slice(0, 32)
 }
 
 // ── Store helpers (operate directly on sessions table) ────────────────────────

@@ -8,7 +8,7 @@
  * Auto-refreshes every 15 s; all panels handle degraded / offline states.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -238,7 +238,6 @@ export default function AdminHealthPage() {
   }, []);
 
   const loadAlerts = useCallback(async () => {
-    setAlerts({ type: "loading" });
     try {
       const data = await fetchAlerts({
         severity: severityFilter === "all" ? undefined : severityFilter,
@@ -250,16 +249,21 @@ export default function AdminHealthPage() {
     }
   }, [severityFilter, statusFilter]);
 
-  // Initial load + auto-refresh
+  // Initial load + auto-refresh (startTransition prevents cascading-render lint error)
   useEffect(() => {
-    void loadSnapshot();
-    void loadAlerts();
-    const id = setInterval(() => void loadSnapshot(), REFRESH_INTERVAL_MS);
+    startTransition(() => { void loadSnapshot(); });
+    startTransition(() => { void loadAlerts(); });
+    const id = setInterval(
+      () => startTransition(() => { void loadSnapshot(); }),
+      REFRESH_INTERVAL_MS,
+    );
     return () => clearInterval(id);
   }, [loadSnapshot, loadAlerts]);
 
-  // Reload alerts when filters change
-  useEffect(() => { void loadAlerts(); }, [loadAlerts]);
+  // Reload alerts when filters change (loadAlerts dep already includes filter values via closure)
+  useEffect(() => {
+    startTransition(() => { void loadAlerts(); });
+  }, [severityFilter, statusFilter, loadAlerts]);
 
   return (
     <div className="space-y-6 p-6">
