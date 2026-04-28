@@ -63,6 +63,8 @@ import { metricsMiddleware } from './middleware/metricsMiddleware.js';
 import { JobScheduler, initJobStore, PostgresJobStore } from "./jobs/scheduler/index.js"
 import { createAdminJobsRouter } from "./routes/adminJobs.js"
 import { getNotificationService } from "./notifications/index.js"
+import { createWebhookReplayRouter } from "./routes/webhookReplay.js"
+import { PostgresWebhookReplayStore, initWebhookReplayStore as initStore } from "./webhookReplay/index.js"
 
 import { sanitizeRequest, detectMaliciousPatterns } from "./middleware/sanitization.js"
 import { createComprehensiveRateLimiter } from "./middleware/comprehensiveRateLimit.js"
@@ -196,13 +198,18 @@ export function createApp() {
   const jobScheduler = new JobScheduler(
     parseInt(process.env.JOB_SCHEDULER_POLL_MS ?? '5000', 10),
   )
-  
+
   // Register notification job handler
   const notificationService = getNotificationService()
   jobScheduler.registerHandler('notification.send', async (job) => {
     await notificationService.send(job.payload as any)
   })
-  
+
+  // Webhook Replay Store — swap to Postgres store when DATABASE_URL is set
+  if (process.env.DATABASE_URL) {
+    initStore(new PostgresWebhookReplayStore())
+  }
+
   if (env.NODE_ENV !== 'test') {
     jobScheduler.start()
     workers.push(jobScheduler)
@@ -317,6 +324,7 @@ export function createApp() {
   app.use('/api/admin/reconciliation', createAdminReconciliationRouter(ngnWalletService))
   app.use('/api/admin/secrets', createSecretRotationRouter())
   app.use('/api/admin/jobs', createAdminJobsRouter())
+  app.use('/api/admin/webhook-replay', createWebhookReplayRouter())
   app.use('/api/deals', createDealsRouter())
   app.use('/api/whistleblower', createWhistleblowerRouter(earningsService))
   app.use('/api/staking', createStakingRouter(sorobanAdapter, walletService, linkedAddressStore, ngnWalletService, conversionService, stakingService))
