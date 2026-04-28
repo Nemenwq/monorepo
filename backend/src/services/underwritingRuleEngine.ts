@@ -226,7 +226,7 @@ export class UnderwritingRuleEngine {
         result.details = { duration: context.duration, threshold: rule.threshold }
         break
 
-      case 'monthly_payment_affordable':
+      case 'monthly_payment_affordable': {
         // Assume monthly payment should not exceed 40% of annual rent
         const paymentRatio = context.monthlyPayment / context.annualRent
         result.passed = paymentRatio <= (rule.threshold || 0.4)
@@ -236,6 +236,7 @@ export class UnderwritingRuleEngine {
           : `Monthly payment ratio ${paymentRatio.toFixed(2)} exceeds affordability threshold ${rule.threshold}`
         result.details = { paymentRatio, threshold: rule.threshold }
         break
+      }
 
       case 'user_not_frozen':
         result.passed = !context.userRiskState?.isFrozen
