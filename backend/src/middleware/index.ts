@@ -28,4 +28,9 @@ export {
 	recordCacheInvalidation,
 	type CacheConfig,
 } from "./cacheControl.js";
+export {
+	createAdvancedRateLimiter,
+	RateLimitPresets,
+	type AdvancedRateLimitConfig,
+} from "./advancedRateLimit.js";
 
