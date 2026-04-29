@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   CacheInvalidationService,
+  cacheInvalidationService,
   invalidateCacheOnMutation,
   initializeCacheInvalidationWebhooks,
   type CacheInvalidationEvent,
@@ -232,8 +233,7 @@ describe('Cache Invalidation Helpers', () => {
 
   beforeEach(() => {
     // Use singleton for helper tests
-    const { cacheInvalidationService: singleton } = require('./cacheInvalidation.js')
-    service = singleton
+    service = cacheInvalidationService
     service.clearQueue()
     vi.clearAllMocks()
   })

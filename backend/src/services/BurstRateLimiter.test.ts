@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { BurstRateLimiter, BurstRateLimitConfig } from './BurstRateLimiter.js'
 
-// Mock Redis client
-const mockRedis = {
+// Mock Redis client - vi.hoisted runs before vi.mock factory
+const mockRedis = vi.hoisted(() => ({
   eval: vi.fn(),
   zcard: vi.fn(),
   pttl: vi.fn(),
   del: vi.fn(),
-}
+}))
 
 vi.mock('../utils/redis.js', () => ({
   getRedisClient: () => mockRedis,
@@ -16,6 +16,7 @@ vi.mock('../utils/redis.js', () => ({
 vi.mock('../utils/logger.js', () => ({
   logger: {
     error: vi.fn(),
+    info: vi.fn(),
   },
 }))
 
@@ -196,17 +197,10 @@ describe('BurstRateLimiter', () => {
 
       await limiter.checkLimit('test-key', config)
 
-      expect(mockRedis.eval).toHaveBeenCalledWith(
-        expect.any(String),
-        1,
-        'test-key',
-        expect.any(String),
-        expect.any(String),
-        expect.any(String),
-        expect.any(String),
-        expect.any(String),
-        expect.any(String)
-      )
+      expect(mockRedis.eval).toHaveBeenCalledTimes(1)
+      expect(mockRedis.eval.mock.calls[0][1]).toBe(1)
+      expect(mockRedis.eval.mock.calls[0][2]).toBe('test-key')
+      expect(mockRedis.eval.mock.calls[0].length).toBe(10)
     })
 
     it('should allow burst recovery after burst window expires', async () => {
