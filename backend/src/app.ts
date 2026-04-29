@@ -110,6 +110,7 @@ import { createApartmentReviewsRouter } from "./routes/apartmentReviews.js";
 import { createComplianceReportRouter } from "./routes/complianceReport.js";
 import { createTenantCreditScoringRouter } from "./routes/tenantCreditScoring.js";
 import { createDocsRouter } from "./routes/docs.js";
+import { initializeCacheInvalidationWebhooks } from "./services/cacheInvalidation.js";
 
 export function createApp() {
   const app = express();
@@ -117,6 +118,11 @@ export function createApp() {
   // Initialize secret rotation service
   if (env.NODE_ENV !== "test") {
     initializeAppSecretRotation();
+  }
+
+  // Initialize cache invalidation webhooks
+  if (env.NODE_ENV !== "test") {
+    initializeCacheInvalidationWebhooks();
   }
 
   // Test database
